@@ -268,6 +268,10 @@ async def test_live_premove_queue_executes_on_turn_change_and_esc_cancels(tmp_pa
         await app.execute_move(chess.G1, chess.F3)
         assert app.game_state.premove == (chess.G1, chess.F3, None)
         assert sent_moves == []
+        # Board border & sidebar clearly display OPPONENT'S TURN while waiting
+        board_text = app.query_one("#board_widget", BoardWidget).render().plain
+        assert "TURN" in board_text
+        assert "PREMOVE" in board_text
 
         # Pressing Esc cancels queued premove
         await pilot.press("escape")

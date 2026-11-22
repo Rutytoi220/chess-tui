@@ -242,6 +242,19 @@ class ChessTuiApp(App[None]):
 
         top = Text()
         top.append(" ♞ CHESS-TUI ", Style(color=t.hint_fg, bgcolor=t.accent_fg, bold=True))
+        turn_badge = ""
+        turn_mine: bool | None = None
+        if not self.game_state.game_over and self.game_state.player_color is not None:
+            if self.game_state.is_users_turn():
+                turn_badge = "▶ YOUR TURN"
+                turn_mine = True
+                top.append(" ")
+                top.append(" ▶ YOUR TURN ", Style(color=t.clock_active_fg, bgcolor=t.clock_active_bg, bold=True))
+            else:
+                turn_badge = "⏳ OPPONENT'S TURN"
+                turn_mine = False
+                top.append(" ")
+                top.append(" ⏳ OPPONENT'S TURN ", Style(color=t.hint_fg, bgcolor=t.premove_bg, bold=True))
         top.append(f"  {self._connection_label()}", Style(color=t.text_fg, bold=True))
         top.append(f"  │  Theme: {self.config.theme}", Style(color=t.muted_fg))
         top.append(f"  │  Hints: {self.config.hints.mode}", Style(color=t.muted_fg))
@@ -277,6 +290,8 @@ class ChessTuiApp(App[None]):
             hint_buffer=self.hint_buffer,
             selected_label=sel_lbl,
             message=self._status_msg,
+            turn_badge=turn_badge,
+            turn_is_mine=turn_mine,
         )
 
     def _set_status(self, message: str) -> None:

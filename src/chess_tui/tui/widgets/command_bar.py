@@ -51,6 +51,8 @@ class CommandBar(Horizontal):
         self._hint_buffer: str = ""
         self._selected_label: str = ""
         self._status_message: str = "Ready"
+        self._turn_badge: str = ""
+        self._turn_is_mine: bool | None = None
 
     def compose(self):
         yield Static(id="status_strip")
@@ -78,6 +80,8 @@ class CommandBar(Horizontal):
         hint_buffer: str | None = None,
         selected_label: str | None = None,
         message: str | None = None,
+        turn_badge: str | None = None,
+        turn_is_mine: bool | None = None,
     ) -> None:
         if hint_mode is not None:
             self._hint_mode = hint_mode
@@ -87,6 +91,10 @@ class CommandBar(Horizontal):
             self._selected_label = selected_label
         if message is not None:
             self._status_message = message
+        if turn_badge is not None:
+            self._turn_badge = turn_badge
+        if turn_is_mine is not None or turn_badge == "":
+            self._turn_is_mine = turn_is_mine
         self._refresh_strip()
 
     def _refresh_strip(self) -> None:
@@ -95,7 +103,19 @@ class CommandBar(Horizontal):
         strip = self.query_one("#status_strip", Static)
         t = self.theme
         txt = Text()
-        txt.append(f" {self._hint_mode.upper()} ", Style(color=t.hint_fg, bgcolor=t.accent_fg, bold=True))
+        if self._turn_badge:
+            if self._turn_is_mine:
+                txt.append(
+                    f" {self._turn_badge} ",
+                    Style(color=t.clock_active_fg, bgcolor=t.clock_active_bg, bold=True),
+                )
+            else:
+                txt.append(
+                    f" {self._turn_badge} ",
+                    Style(color=t.hint_fg, bgcolor=t.premove_bg, bold=True),
+                )
+            txt.append(" ", Style(bgcolor=t.panel_bg))
+        txt.append(f" {self._hint_mode.upper()} ", Style(color=t.text_fg, bgcolor=t.surface_bg, bold=True))
         txt.append("  ", Style(bgcolor=t.panel_bg))
 
         if self._selected_label:

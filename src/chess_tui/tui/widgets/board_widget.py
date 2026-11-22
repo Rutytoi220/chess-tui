@@ -199,6 +199,9 @@ class BoardWidget(Widget):
         buf = self.hint_buffer if self.hint_config.case_sensitive else self.hint_buffer.upper()
         cmp_tag = tag if self.hint_config.case_sensitive else tag.upper()
         t = self.theme
+        is_premove = self.game_state.is_premove_allowed()
+        badge_bg = t.panel_bg if is_premove else t.hint_bg
+        badge_fg = t.premove_bg if is_premove else t.hint_fg
 
         if buf:
             if cmp_tag.startswith(buf):
@@ -207,15 +210,15 @@ class BoardWidget(Widget):
                 segs = [
                     (
                         matched_part,
-                        Style(color=t.hint_matched_fg, bgcolor=t.hint_bg, bold=True, underline=True),
+                        Style(color=t.hint_matched_fg, bgcolor=badge_bg, bold=True, underline=True),
                     )
                 ]
                 if rest_part:
-                    segs.append((rest_part, Style(color=t.hint_fg, bgcolor=t.hint_bg, bold=True)))
+                    segs.append((rest_part, Style(color=badge_fg, bgcolor=badge_bg, bold=True)))
                 return segs
             if self.hint_config.dim_non_matching:
                 return [(tag, Style(color=t.hint_dim_fg, bgcolor=sq_bg, dim=True))]
-        return [(tag, Style(color=t.hint_fg, bgcolor=t.hint_bg, bold=True))]
+        return [(tag, Style(color=badge_fg, bgcolor=badge_bg, bold=True))]
 
     def _render_square_row(
         self,
@@ -380,9 +383,34 @@ class BoardWidget(Widget):
         self._grid_origin_x = pad_left + left_margin + (1 if has_border else 0)
         self._grid_origin_y = pad_top + (1 if has_border else 0)
 
-        border_style = Style(color=t.border_fg, bgcolor=t.app_bg)
+        is_my_turn = self.game_state.is_users_turn()
+        is_premove = self.game_state.is_premove_allowed()
+        has_assigned_side = self.game_state.player_color is not None and not self.game_state.game_over
+
+        border_fg = t.border_fg
+        if has_assigned_side:
+            border_fg = t.success_fg if is_my_turn else t.muted_fg
+        border_style = Style(color=border_fg, bgcolor=t.app_bg, bold=is_my_turn)
         bg_style = Style(color=t.text_fg, bgcolor=t.app_bg)
         coord_style = Style(color=t.muted_fg, bgcolor=t.app_bg, bold=True)
+
+        def _append_labeled_border(
+            left_corner: str,
+            right_corner: str,
+            label: str,
+            label_style: Style,
+        ) -> None:
+            out.append(" " * (pad_left + left_margin), bg_style)
+            if not label or board_pixel_w < 12:
+                out.append(left_corner + (horiz * board_pixel_w) + right_corner + "\n", border_style)
+                return
+            max_lbl = board_pixel_w - 4
+            clipped = label[:max_lbl]
+            lead = 2
+            trail = max(0, board_pixel_w - lead - len(clipped))
+            out.append(left_corner + (horiz * lead), border_style)
+            out.append(clipped, label_style)
+            out.append((horiz * trail) + right_corner + "\n", border_style)
 
         out = Text()
 
@@ -390,8 +418,17 @@ class BoardWidget(Widget):
             out.append("\n")
 
         if has_border:
-            out.append(" " * (pad_left + left_margin), bg_style)
-            out.append(tl + (horiz * board_pixel_w) + tr + "\n", border_style)
+            top_lbl = ""
+            top_lbl_style = border_style
+            if has_assigned_side:
+                opp = self.game_state.white_player if self.flipped else self.game_state.black_player
+                if is_premove:
+                    top_lbl = f" ⏳ {opp.username}'s TURN ({opp.clock_text}) "
+                    top_lbl_style = Style(color=t.hint_fg, bgcolor=t.premove_bg, bold=True)
+                else:
+                    top_lbl = f" {opp.username} ({opp.clock_text}) "
+                    top_lbl_style = Style(color=t.muted_fg, bgcolor=t.app_bg)
+            _append_labeled_border(tl, tr, top_lbl, top_lbl_style)
 
         for r_idx, rank in enumerate(ranks):
             for sub_row in range(dims.height):
@@ -428,8 +465,22 @@ class BoardWidget(Widget):
                 out.append("\n")
 
         if has_border:
-            out.append(" " * (pad_left + left_margin), bg_style)
-            out.append(bl + (horiz * board_pixel_w) + br + "\n", border_style)
+            bot_lbl = ""
+            bot_lbl_style = border_style
+            if has_assigned_side:
+                me = self.game_state.black_player if self.flipped else self.game_state.white_player
+                if is_my_turn:
+                    bot_lbl = f" ▶ YOUR TURN ({me.clock_text}) "
+                    bot_lbl_style = Style(color=t.clock_active_fg, bgcolor=t.clock_active_bg, bold=True)
+                elif is_premove:
+                    if self.game_state.premove is not None:
+                        pf = chess.square_name(self.game_state.premove[0]).upper()
+                        pt = chess.square_name(self.game_state.premove[1]).upper()
+                        bot_lbl = f" PREMOVE {pf}→{pt} ({me.clock_text}) "
+                    else:
+                        bot_lbl = f" WAITING — PREMOVE READY ({me.clock_text}) "
+                    bot_lbl_style = Style(color=t.text_fg, bgcolor=t.panel_bg)
+            _append_labeled_border(bl, br, bot_lbl, bot_lbl_style)
 
         if outside_coords:
             out.append(" " * (pad_left + left_margin + (1 if has_border else 0)), bg_style)

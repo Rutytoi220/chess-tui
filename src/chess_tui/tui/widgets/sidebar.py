@@ -131,6 +131,24 @@ class SidebarWidget(Widget):
             )
         out.append("\n")
 
+        # Turn banner (immediately distinguishes YOUR TURN vs OPPONENT'S TURN)
+        if not gs.game_over and gs.mode != GameMode.CHESSCOM_ARCHIVE:
+            if gs.player_color is not None:
+                if gs.is_users_turn():
+                    side = "WHITE" if gs.player_color == chess.WHITE else "BLACK"
+                    out.append(
+                        f" ▶ YOUR TURN ({side}) \n\n",
+                        Style(color=t.clock_active_fg, bgcolor=t.clock_active_bg, bold=True),
+                    )
+                else:
+                    out.append(
+                        " ⏳ OPPONENT'S TURN (PREMOVE) \n\n",
+                        Style(color=t.hint_fg, bgcolor=t.premove_bg, bold=True),
+                    )
+            else:
+                side = "WHITE" if gs.board.turn == chess.WHITE else "BLACK"
+                out.append(f" TURN: {side}\n\n", Style(color=t.accent_fg, bold=True))
+
         cap_white, cap_black, white_adv = gs.captured_pieces()
         top_is_white = self.flipped
         if lc.show_players:
