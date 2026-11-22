@@ -58,7 +58,21 @@ Customize everything live in-app (`Ctrl+S`), via Vim commands (`:`), or in `~/.c
 
 ## Installation
 
-Using [`uv`](https://docs.astral.sh/uv/):
+### One-Liner Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Rutytoi220/chess-tui/main/install.sh | bash
+```
+
+Or directly via [`uv`](https://docs.astral.sh/uv/) or `pipx`:
+
+```bash
+uv tool install git+https://github.com/Rutytoi220/chess-tui.git
+# or:
+pipx install git+https://github.com/Rutytoi220/chess-tui.git
+```
+
+### From Source (Dev)
 
 ```bash
 git clone https://github.com/Rutytoi220/chess-tui.git
@@ -66,13 +80,6 @@ cd chess-tui
 uv sync
 uv run chess-tui doctor
 uv run chess-tui
-```
-
-Or install globally as a tool:
-
-```bash
-uv tool install .
-chess-tui
 ```
 
 ---
