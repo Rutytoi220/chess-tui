@@ -15,6 +15,7 @@ from chess_tui.config.schema import BoardConfig, HintConfig
 from chess_tui.config.themes import (
     BLOCK_SPRITES_5X3,
     BLOCK_SPRITES_7X3,
+    BLOCK_SPRITES_9X4,
     PIECE_GLYPHS,
     ThemePalette,
 )
@@ -42,6 +43,7 @@ SIZE_PRESETS: dict[str, SquareDims] = {
     "medium": SquareDims(7, 3, "medium"),
     "large": SquareDims(9, 4, "large"),
     "huge": SquareDims(11, 5, "huge"),
+    "giant": SquareDims(13, 6, "giant"),
 }
 
 
@@ -132,13 +134,19 @@ class BoardWidget(Widget):
 
         avail_w = max(40, self.size.width)
         avail_h = max(10, self.size.height)
-        for name in ("huge", "large", "medium", "compact"):
-            d = SIZE_PRESETS[name]
-            need_w = d.width * 8 + 8
-            need_h = d.height * 8 + 5
-            if avail_w >= need_w and avail_h >= need_h:
-                return d
-        return SIZE_PRESETS["compact"]
+        overhead_w = 5 if self.board_config.coordinates == "outside" else 2
+        overhead_h = 3 if self.board_config.coordinates == "outside" else 2
+        promo_h = 2 if self.pending_promotion else 0
+
+        max_sq_w = max(5, (avail_w - overhead_w - 2) // 8)
+        max_sq_h = max(1, (avail_h - overhead_h - promo_h - 1) // 8)
+
+        # Keep roughly 2:1 cell ratio (square visual proportions) while filling available space
+        sq_h = min(max_sq_h, max_sq_w // 2, 7)
+        if sq_h < 1:
+            sq_h = 1
+        sq_w = min(max_sq_w, max(5, sq_h * 2 + 1))
+        return SquareDims(sq_w, sq_h, "auto")
 
     def _piece_symbol(self, piece: chess.Piece) -> str:
         key = piece.symbol()
@@ -251,11 +259,12 @@ class BoardWidget(Widget):
                 ]
             return [(" " * w, base_style)]
 
-        # Multi-row square rendering (`medium`, `large`, `huge`)
+        # Multi-row square rendering (`medium`, `large`, `huge`, `giant`, `auto`)
+        style_pref = self.board_config.piece_style.lower().strip()
         use_block = (
-            self.board_config.piece_style == "block"
+            style_pref in ("block", "auto")
             and piece is not None
-            and w >= 9
+            and w >= 7
             and h >= 4
         )
         hint_pos = self.hint_config.position
@@ -263,12 +272,17 @@ class BoardWidget(Widget):
         if hint_pos == "center" and piece is None:
             hint_row = h // 2
 
-        # Block-art multi-line pieces occupy rows 1..3 (or 1..3 in 5-row huge)
+        # Block-art multi-line pieces occupy rows below row 0
         if use_block and piece is not None:
-            sprite_map = BLOCK_SPRITES_7X3 if w >= 11 else BLOCK_SPRITES_5X3
-            sprite_rows = sprite_map[piece.symbol().upper()]
+            if w >= 11 and h >= 5:
+                sprite_rows: tuple[str, ...] = BLOCK_SPRITES_9X4[piece.symbol().upper()]
+            elif w >= 9:
+                sprite_rows = BLOCK_SPRITES_7X3[piece.symbol().upper()]
+            else:
+                sprite_rows = BLOCK_SPRITES_5X3[piece.symbol().upper()]
+            sprite_h = len(sprite_rows)
             sprite_start_row = 1
-            if row_idx != hint_row and sprite_start_row <= row_idx < sprite_start_row + 3:
+            if row_idx != hint_row and sprite_start_row <= row_idx < sprite_start_row + sprite_h:
                 line = sprite_rows[row_idx - sprite_start_row]
                 p_fg = t.white_piece_fg if piece.color == chess.WHITE else t.black_piece_fg
                 p_style = Style(color=p_fg, bgcolor=sq_bg, bold=True)

@@ -12,6 +12,7 @@ from .schema import (
 from .themes import (
     BLOCK_SPRITES_5X3,
     BLOCK_SPRITES_7X3,
+    BLOCK_SPRITES_9X4,
     PIECE_GLYPHS,
     THEMES,
     ThemePalette,
@@ -21,6 +22,7 @@ from .themes import (
 __all__ = [
     "BLOCK_SPRITES_5X3",
     "BLOCK_SPRITES_7X3",
+    "BLOCK_SPRITES_9X4",
     "PIECE_GLYPHS",
     "THEMES",
     "BoardConfig",

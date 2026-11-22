@@ -213,3 +213,18 @@ async def test_hjkl_cursor_moves_on_board_and_inside_modals(tmp_path: Path):
         await pilot.press("q")
         await pilot.pause()
         assert len(app.screen_stack) == 1
+
+
+async def test_auto_board_sizing_and_block_art_pieces(tmp_path: Path):
+    app = _make_app(tmp_path)
+    app.config.board.square_size = "auto"
+    app.config.board.piece_style = "auto"
+    async with app.run_test(size=(130, 50)) as pilot:
+        await pilot.pause()
+        board_w = app.query_one("#board_widget", BoardWidget)
+        dims = board_w._resolve_dims()
+        assert dims.width >= 9
+        assert dims.height >= 4
+        rendered = board_w.render().plain
+        # Multi-line block-art silhouettes should be rendered on large terminals
+        assert "███" in rendered

@@ -142,18 +142,23 @@ READ_STATE_JS = r"""
   const topPlayer = readPlayerPanel("#board-layout-player-top, .player-top");
   const bottomPlayer = readPlayerPanel("#board-layout-player-bottom, .player-bottom");
 
-  // Extract SAN move list
+  // Extract SAN move list (ignoring Chess.com move timestamps like "2s", "0s")
   const moves = [];
   const moveNodes = document.querySelectorAll(
     "wc-simple-move-list [data-ply], vertical-move-list [data-ply], .move-list-wrapper [data-ply], wc-simple-move-list .node, vertical-move-list .node"
   );
   for (const node of moveNodes) {
-    // Handle Chess.com figurine font attributes if present (`data-figurine="N"`)
+    if (node.closest("[class*='time'], [class*='clock']") || /time|clock/i.test(node.className || "")) continue;
     const figEl = node.querySelector("[data-figurine]");
     const fig = figEl ? figEl.getAttribute("data-figurine") || "" : "";
-    let txt = (node.textContent || "").replace(/\s+/g, "").trim();
+    const clone = node.cloneNode(true);
+    for (const rm of clone.querySelectorAll("[class*='time'], [class*='clock'], [data-cy*='time']")) {
+      rm.remove();
+    }
+    let txt = (clone.textContent || "").replace(/\s+/g, "").trim();
     txt = txt.replace(/^\d+\.+/, "");
     if (!txt) continue;
+    if (/^\d+(\.\d+)?[smhd]$/i.test(txt) || /^\d+:\d+/.test(txt)) continue;
     if (fig && !txt.startsWith(fig) && !txt.startsWith("O-")) {
       txt = fig + txt;
     }

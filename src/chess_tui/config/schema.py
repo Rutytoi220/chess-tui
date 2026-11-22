@@ -40,10 +40,11 @@ class HintConfig:
 class BoardConfig:
     """Visual board rendering customization."""
 
-    # "auto", "compact", "medium", "large", "huge"
+    # "auto", "compact", "medium", "large", "huge", "giant"
     square_size: str = "auto"
-    # "unicode-filled", "unicode-dual", "ascii", "ascii-upper", "nerd", "block", "custom"
-    piece_style: str = "unicode-filled"
+    # "auto" (large block art when space fits, unicode when compact),
+    # "block", "unicode-filled", "unicode-dual", "ascii", "ascii-upper", "nerd", "custom"
+    piece_style: str = "auto"
     # Custom 12-piece map used when piece_style == "custom"
     custom_pieces: dict[str, str] = field(
         default_factory=lambda: {
@@ -72,7 +73,7 @@ class LayoutConfig:
 
     # "right", "left", "none"
     sidebar_position: str = "right"
-    sidebar_width: int = 38
+    sidebar_width: int = 32
     show_clocks: bool = True
     show_players: bool = True
     show_captured: bool = True

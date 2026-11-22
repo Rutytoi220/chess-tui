@@ -35,7 +35,7 @@ def test_sync_from_bridge_reconstructs_moves_and_clocks():
         "url": "https://www.chess.com/game/live/123456",
         "hasBoard": True,
         "flipped": True,
-        "moves": ["e4", "c5", "Nf3"],
+        "moves": ["e4", "2s", "c5", "0s", "Nf3", "1.4s"],
         "topPlayer": {"username": "WhitePlayer", "rating": "1850", "clock": "02:58", "isActive": False},
         "bottomPlayer": {"username": "BlackPlayer", "rating": "1900", "clock": "03:00", "isActive": True},
         "gameOver": {"isOver": False},

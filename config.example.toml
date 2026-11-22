@@ -40,10 +40,10 @@ N = "n"
 # e4 = "BC"
 
 [board]
-# "auto", "compact", "medium", "large", "huge"
+# "auto", "compact", "medium", "large", "huge", "giant"
 square_size = "auto"
-# "unicode-filled", "unicode-dual", "ascii", "ascii-upper", "nerd", "block", "custom"
-piece_style = "unicode-filled"
+# "auto" (big block-art pieces when space fits), "block", "unicode-filled", "unicode-dual", "ascii", "ascii-upper", "nerd", "custom"
+piece_style = "auto"
 # "rounded", "double", "heavy", "ascii", "none"
 border_style = "rounded"
 # "outside", "inside", "none"
@@ -61,7 +61,7 @@ show_square_cursor = true
 [layout]
 # "right", "left", "none"
 sidebar_position = "right"
-sidebar_width = 38
+sidebar_width = 32
 show_clocks = true
 show_players = true
 show_captured = true

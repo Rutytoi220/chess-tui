@@ -577,24 +577,34 @@ PIECE_GLYPHS: dict[str, dict[str, str]] = {
     },
 }
 
-# Multi-line 5x3 block-art silhouettes for large/huge board sizes
+# Multi-line 5x3 block-art silhouettes for medium/large board sizes
 BLOCK_SPRITES_5X3: dict[str, tuple[str, str, str]] = {
     "K": (" ▀┼▀ ", "▄███▄", "█████"),
     "Q": ("▀▄▀▄▀", " ███ ", "█████"),
     "R": ("█▄█▄█", " ███ ", "█████"),
     "B": (" ▄▀▄ ", " ███ ", "▄███▄"),
     "N": (" ▄██▄", "██▀▀ ", "█████"),
-    "P": ("  ▄  ", "  █  ", "▄███▄"),
+    "P": ("  ▄  ", " ▄█▄ ", "▄███▄"),
 }
 
-# Multi-line 7x3 extra-crisp sprites for huge board sizes
+# Multi-line 7x3 extra-crisp sprites for large/huge board sizes
 BLOCK_SPRITES_7X3: dict[str, tuple[str, str, str]] = {
     "K": ("  ▀┼▀  ", " ▄███▄ ", " █████ "),
-    "Q": ("▀▄▀▄▀▄▀", "  ███  ", " █████ "),
+    "Q": ("▀▄▀▄▀▄▀", " ▀███▀ ", " █████ "),
     "R": (" █▄█▄█ ", "  ███  ", " █████ "),
     "B": ("  ▄▀▄  ", "  ███  ", " ▄███▄ "),
     "N": ("  ▄██▄ ", " ███▀▀ ", " █████ "),
-    "P": ("   ▄   ", "   █   ", " ▄███▄ "),
+    "P": ("   ▄   ", "  ▄█▄  ", " ▄███▄ "),
+}
+
+# Multi-line 9x4 extra-large sprites for huge/giant/fullscreen boards
+BLOCK_SPRITES_9X4: dict[str, tuple[str, str, str, str]] = {
+    "K": ("   ▀┼▀   ", "  ▄███▄  ", "  █████  ", " ███████ "),
+    "Q": ("▀▄▀▄▀▄▀▄▀", "  █████  ", "  ▀███▀  ", " ███████ "),
+    "R": (" █▄█▄█▄█ ", "  █████  ", "  █████  ", " ███████ "),
+    "B": ("   ▄▀▄   ", "  ▄███▄  ", "   ███   ", " ███████ "),
+    "N": ("  ▄████▄ ", " ████▀▀  ", "  ████▄  ", " ███████ "),
+    "P": ("    ▄    ", "   ███   ", "   ███   ", "  █████  "),
 }
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+import re
 from typing import Any
 
 import chess
@@ -254,7 +255,11 @@ class GameState:
         )
 
         dom_pieces: dict[str, str] = snapshot.get("pieces") or {}
-        dom_moves: list[str] = [str(m) for m in (snapshot.get("moves") or []) if m]
+        dom_moves: list[str] = [
+            str(m)
+            for m in (snapshot.get("moves") or [])
+            if m and not re.fullmatch(r"\d+(?:\.\d+)?[smhd]", str(m).strip(), re.I)
+        ]
         dom_fen: str | None = snapshot.get("fen")
 
         rebuilt_board: chess.Board | None = None

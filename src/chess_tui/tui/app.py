@@ -840,7 +840,7 @@ class ChessTuiApp(App[None]):
             event.stop()
             return
         if self._matches_binding(event, "cycle_size"):
-            sizes = ["auto", "compact", "medium", "large", "huge"]
+            sizes = ["auto", "compact", "medium", "large", "huge", "giant"]
             cur = sizes.index(self.config.board.square_size) if self.config.board.square_size in sizes else 0
             self.config.board.square_size = sizes[(cur + 1) % len(sizes)]
             self.config_manager.save()

@@ -143,9 +143,10 @@ class SettingsScreen(VimModalScreen):
                             yield Label("Piece Art Style", classes="setting_label")
                             yield Select(
                                 [
+                                    ("Auto (block art on large, unicode small)", "auto"),
+                                    ("Multi-line Block Art (5x3/7x3/9x4)", "block"),
                                     ("Unicode Filled (♚♛♜♝♞♟)", "unicode-filled"),
                                     ("Unicode Dual (♔♕ vs ♚♛)", "unicode-dual"),
-                                    ("Multi-line Block Art (5x3/7x3)", "block"),
                                     ("ASCII (K Q R vs k q r)", "ascii"),
                                     ("ASCII Uppercase", "ascii-upper"),
                                     ("Nerd Font Icons", "nerd"),
@@ -159,11 +160,12 @@ class SettingsScreen(VimModalScreen):
                             yield Label("Square Size", classes="setting_label")
                             yield Select(
                                 [
-                                    ("Auto (fit terminal)", "auto"),
+                                    ("Auto (fill terminal)", "auto"),
                                     ("Compact (5x1)", "compact"),
                                     ("Medium (7x3)", "medium"),
                                     ("Large (9x4)", "large"),
                                     ("Huge (11x5)", "huge"),
+                                    ("Giant (13x6)", "giant"),
                                 ],
                                 value=cfg.board.square_size,
                                 id="board_square_size",
