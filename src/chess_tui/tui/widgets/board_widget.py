@@ -142,8 +142,8 @@ class BoardWidget(Widget):
         max_sq_w = max(5, (avail_w - overhead_w - 2) // 8)
         max_sq_h = max(1, (avail_h - overhead_h - promo_h - 1) // 8)
 
-        # Keep roughly 2:1 cell ratio (square visual proportions) while filling available space
-        sq_h = min(max_sq_h, max_sq_w // 2, 7)
+        # Keep roughly 2:1 cell ratio while expanding vertically so multi-line pieces fit
+        sq_h = min(max_sq_h, (max_sq_w + 1) // 2, 7)
         if sq_h < 1:
             sq_h = 1
         sq_w = min(max_sq_w, max(5, sq_h * 2 + 1))
@@ -269,30 +269,36 @@ class BoardWidget(Widget):
             style_pref in ("block", "auto")
             and piece is not None
             and w >= 7
-            and h >= 4
+            and h >= 3
         )
         hint_pos = self.hint_config.position
         hint_row = 0 if hint_pos.startswith("top") or hint_pos == "center" else (h - 1)
         if hint_pos == "center" and piece is None:
             hint_row = h // 2
 
-        # Block-art multi-line pieces occupy rows below row 0
+        # Block-art multi-line pieces occupy rows below hint_row (or cols 2..6 alongside hint on h==3)
         if use_block and piece is not None:
             if w >= 11 and h >= 5:
                 sprite_rows: tuple[str, ...] = BLOCK_SPRITES_9X4[piece.symbol().upper()]
-            elif w >= 9:
+            elif w >= 9 and h >= 4:
                 sprite_rows = BLOCK_SPRITES_7X3[piece.symbol().upper()]
             else:
                 sprite_rows = BLOCK_SPRITES_5X3[piece.symbol().upper()]
             sprite_h = len(sprite_rows)
-            sprite_start_row = 1
-            if row_idx != hint_row and sprite_start_row <= row_idx < sprite_start_row + sprite_h:
+            sprite_start_row = 0 if h == 3 else 1
+            if sprite_start_row <= row_idx < sprite_start_row + sprite_h:
                 line = sprite_rows[row_idx - sprite_start_row]
                 p_fg = t.white_piece_fg if piece.color == chess.WHITE else t.black_piece_fg
                 p_style = Style(color=p_fg, bgcolor=sq_bg, bold=True)
-                left_pad = (w - len(line)) // 2
-                right_pad = w - len(line) - left_pad
-                return [(" " * left_pad, base_style), (line, p_style), (" " * right_pad, base_style)]
+                if row_idx == hint_row and hint_segs:
+                    # On h==3, place hint badge top-left and sprite cleanly to its right
+                    if w - hint_len >= len(line):
+                        rem = w - hint_len - len(line)
+                        return [*hint_segs, (line, p_style), (" " * rem, base_style)]
+                elif row_idx != hint_row or (h == 3 and not hint_segs):
+                    left_pad = (w - len(line)) // 2
+                    right_pad = w - len(line) - left_pad
+                    return [(" " * left_pad, base_style), (line, p_style), (" " * right_pad, base_style)]
 
         # Hint row (typically row 0)
         if row_idx == hint_row and hint_segs:

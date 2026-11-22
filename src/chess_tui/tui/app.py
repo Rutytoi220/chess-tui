@@ -101,6 +101,7 @@ class ChessTuiApp(App[None]):
         self._initial_puzzle = initial_puzzle
         self._initial_puzzle_random = initial_puzzle_random
         self._last_turn_seen: chess.Color = self.game_state.board.turn
+        self._startup_task: asyncio.Task[None] | None = None
 
     def compose(self) -> ComposeResult:
         yield Static(id="top_bar")
@@ -139,12 +140,32 @@ class ChessTuiApp(App[None]):
 
         if self._initial_puzzle:
             await self.start_daily_puzzle(random=self._initial_puzzle_random)
-        elif self._initial_account:
-            _, msg = await self.connect_account(self._initial_account)
-            self._set_status(msg)
-            self._log(msg)
+        elif self._initial_account and self.account_manager.get(self._initial_account) is not None:
+            self._set_status(f"Reconnecting to saved Chess.com account '{self._initial_account}'...")
+            self._startup_task = asyncio.create_task(
+                self._startup_connect_account(self._initial_account)
+            )
+
+    async def _startup_connect_account(self, alias: str) -> None:
+        _, msg = await self.connect_account(alias)
+        self._set_status(msg)
+        self._log(msg)
+
+    def on_resize(self, event: events.Resize) -> None:
+        if self.is_mounted:
+            self._update_sidebar_width()
+
+    def _update_sidebar_width(self) -> None:
+        sidebar = self.query_one("#sidebar_widget", SidebarWidget)
+        pref_w = self.config.layout.sidebar_width
+        if self.size.width and self.size.width < 120:
+            sidebar.styles.width = min(pref_w, max(25, self.size.width // 4))
+        else:
+            sidebar.styles.width = pref_w
 
     async def on_unmount(self) -> None:
+        if self._startup_task is not None and not self._startup_task.done():
+            self._startup_task.cancel()
         if self.cdp_bridge is not None:
             await self.cdp_bridge.disconnect()
         if self.config.bridge.auto_close_browser_on_exit:
@@ -181,7 +202,7 @@ class ChessTuiApp(App[None]):
 
         sidebar = self.query_one("#sidebar_widget", SidebarWidget)
         sidebar.styles.background = t.surface_bg
-        sidebar.styles.width = self.config.layout.sidebar_width
+        self._update_sidebar_width()
         pos = self.config.layout.sidebar_position.lower().strip()
         if self.config.layout.zen_mode or pos == "none":
             sidebar.styles.display = "none"

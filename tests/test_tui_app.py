@@ -151,6 +151,13 @@ async def test_settings_modal_saves_customizations(tmp_path: Path):
         from textual.widgets import Input, Select
 
         app.screen.query_one("#hints_alphabet", Input).value = "ASDFGHJKL"
+        # Pressing '2' switches directly to Theme & Board tab!
+        await pilot.press("2")
+        await pilot.pause()
+        from textual.widgets import TabbedContent
+
+        assert app.screen.query_one("#settings_tabs", TabbedContent).active == "tab_board"
+
         app.screen.query_one("#theme_select", Select).value = "tokyo-night"
         app.screen.query_one("#board_piece_style", Select).value = "block"
         app.screen.action_save_and_close()
@@ -219,14 +226,15 @@ async def test_auto_board_sizing_and_block_art_pieces(tmp_path: Path):
     app = _make_app(tmp_path)
     app.config.board.square_size = "auto"
     app.config.board.piece_style = "auto"
-    async with app.run_test(size=(130, 50)) as pilot:
+    # Even at 100x46 (user's window size), adaptive sidebar lets block art render cleanly!
+    async with app.run_test(size=(100, 46)) as pilot:
         await pilot.pause()
         board_w = app.query_one("#board_widget", BoardWidget)
         dims = board_w._resolve_dims()
-        assert dims.width >= 9
+        assert dims.width >= 7
         assert dims.height >= 4
         rendered = board_w.render().plain
-        # Multi-line block-art silhouettes should be rendered on large terminals
+        # Multi-line block-art silhouettes should be rendered cleanly
         assert "███" in rendered
 
 

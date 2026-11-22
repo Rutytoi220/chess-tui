@@ -147,8 +147,8 @@ class BridgeConfig:
     block_heavy_assets: bool = True
     # Terminate TUI-launched Chromium when exiting chess-tui so zero background RAM stays used
     auto_close_browser_on_exit: bool = True
-    # Auto-connect default_account on startup (false = 0 MB browser RAM until you press Ctrl+A / --account)
-    auto_connect_on_start: bool = False
+    # Auto-connect default_account on startup (keeps you logged in across restarts!)
+    auto_connect_on_start: bool = True
     # Extra flags passed when launching managed Chromium
     browser_extra_args: list[str] = field(default_factory=list)
     # Local WebSocket port for the optional Chrome/Firefox extension bridge

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from textual import events
 from textual.screen import ModalScreen
-from textual.widgets import Input, Select, TabbedContent
+from textual.widgets import Button, Input, Select, Switch, TabbedContent
 
 
 class VimModalScreen(ModalScreen[None]):
@@ -14,6 +14,19 @@ class VimModalScreen(ModalScreen[None]):
         # Ensure focus lands on the first interactive control rather than nothing
         if self.focused is None:
             self.focus_next()
+
+    def _switch_tab(self, forward: bool) -> bool:
+        tabs = self.query(TabbedContent)
+        if not tabs:
+            return False
+        tc = tabs.first()
+        if forward and hasattr(tc, "action_next_tab"):
+            tc.action_next_tab()
+            return True
+        if not forward and hasattr(tc, "action_previous_tab"):
+            tc.action_previous_tab()
+            return True
+        return False
 
     def on_key(self, event: events.Key) -> None:
         focused = self.focused
@@ -25,7 +38,6 @@ class VimModalScreen(ModalScreen[None]):
                 event.stop()
             return
 
-        # If a Select dropdown overlay is currently open, let Up/Down/j/k navigate its list
         key = event.key
         if key in ("j", "down"):
             if focused is not None and hasattr(focused, "action_cursor_down"):
@@ -58,15 +70,18 @@ class VimModalScreen(ModalScreen[None]):
         if key in ("l", "right"):
             if isinstance(focused, Select) and focused.expanded:
                 return
-            tabs = self.query(TabbedContent)
-            if tabs and focused is not None and focused.__class__.__name__ == "Tab":
-                tc = tabs.first()
-                if hasattr(tc, "action_next_tab"):
-                    tc.action_next_tab()
+            is_tab_widget = focused is not None and any(
+                name in focused.__class__.__name__ for name in ("Tab", "ContentTabs")
+            )
+            if is_tab_widget or isinstance(focused, (Switch, Select)):
+                if self._switch_tab(forward=True):
                     event.prevent_default()
                     event.stop()
                     return
-            self.focus_next()
+            if isinstance(focused, Button):
+                self.focus_next()
+            else:
+                self._switch_tab(forward=True) or self.focus_next()
             event.prevent_default()
             event.stop()
             return
@@ -74,15 +89,18 @@ class VimModalScreen(ModalScreen[None]):
         if key in ("h", "left"):
             if isinstance(focused, Select) and focused.expanded:
                 return
-            tabs = self.query(TabbedContent)
-            if tabs and focused is not None and focused.__class__.__name__ == "Tab":
-                tc = tabs.first()
-                if hasattr(tc, "action_previous_tab"):
-                    tc.action_previous_tab()
+            is_tab_widget = focused is not None and any(
+                name in focused.__class__.__name__ for name in ("Tab", "ContentTabs")
+            )
+            if is_tab_widget or isinstance(focused, (Switch, Select)):
+                if self._switch_tab(forward=False):
                     event.prevent_default()
                     event.stop()
                     return
-            self.focus_previous()
+            if isinstance(focused, Button):
+                self.focus_previous()
+            else:
+                self._switch_tab(forward=False) or self.focus_previous()
             event.prevent_default()
             event.stop()
             return

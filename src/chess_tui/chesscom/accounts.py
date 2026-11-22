@@ -203,9 +203,16 @@ class AccountManager:
             stopped = True
 
         if acc and acc.last_pid > 0:
+            pid = acc.last_pid
             try:
-                os.kill(acc.last_pid, signal.SIGTERM)
+                os.kill(pid, signal.SIGTERM)
                 stopped = True
+                for _ in range(35):
+                    try:
+                        os.kill(pid, 0)
+                    except ProcessLookupError:
+                        break
+                    time.sleep(0.1)
             except ProcessLookupError:
                 pass
             except PermissionError:
@@ -260,6 +267,28 @@ class AccountManager:
         profile_path.mkdir(parents=True, exist_ok=True)
         if not account.profile_dir:
             account.profile_dir = str(profile_path)
+
+        # Clean up stale Chromium SingletonLock if no live process owns this profile
+        lock_file = profile_path / "SingletonLock"
+        if lock_file.is_symlink() or lock_file.exists():
+            try:
+                target = os.readlink(lock_file) if lock_file.is_symlink() else ""
+                pid_str = target.rsplit("-", 1)[-1]
+                owner_pid = int(pid_str) if pid_str.isdigit() else 0
+                pid_alive = False
+                if owner_pid > 0:
+                    try:
+                        os.kill(owner_pid, 0)
+                        pid_alive = True
+                    except ProcessLookupError:
+                        pid_alive = False
+                    except PermissionError:
+                        pid_alive = True
+                if not pid_alive:
+                    for name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+                        (profile_path / name).unlink(missing_ok=True)
+            except OSError:
+                pass
 
         cmd: list[str] = [
             binary,

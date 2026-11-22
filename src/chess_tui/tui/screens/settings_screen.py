@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import Button, Input, Label, Select, Static, Switch, TabbedContent, TabPane
@@ -74,9 +75,12 @@ class SettingsScreen(VimModalScreen):
         preset_opts = [(p, p) for p in tui.config_manager.list_presets()]
 
         with Container(id="settings_dialog"):
-            yield Label("CUSTOMIZE CHESS-TUI", classes="title")
-            with TabbedContent():
-                with TabPane("Vimium Hints", id="tab_hints"):
+            yield Label(
+                "CUSTOMIZE CHESS-TUI  (1-4 or [ / ] or h/l to switch tabs • Esc to save)",
+                classes="title",
+            )
+            with TabbedContent(id="settings_tabs"):
+                with TabPane("1: Vimium Hints", id="tab_hints"):
                     with VerticalScroll():
                         with Horizontal(classes="setting_row"):
                             yield Label("Enable Vimium Hints", classes="setting_label")
@@ -134,7 +138,7 @@ class SettingsScreen(VimModalScreen):
                             yield Label("Premove Hints on Enemy Turn", classes="setting_label")
                             yield Switch(value=cfg.hints.show_premove_hints, id="hints_premove")
 
-                with TabPane("Theme & Board", id="tab_board"):
+                with TabPane("2: Theme & Board", id="tab_board"):
                     with VerticalScroll():
                         with Horizontal(classes="setting_row"):
                             yield Label("Theme Preset", classes="setting_label")
@@ -219,7 +223,7 @@ class SettingsScreen(VimModalScreen):
                             yield Label("Blindfold Mode", classes="setting_label")
                             yield Switch(value=cfg.board.blindfold, id="board_blindfold")
 
-                with TabPane("Layout & Bridge", id="tab_layout"):
+                with TabPane("3: Layout & Bridge", id="tab_layout"):
                     with VerticalScroll():
                         with Horizontal(classes="setting_row"):
                             yield Label("Sidebar Position", classes="setting_label")
@@ -286,7 +290,7 @@ class SettingsScreen(VimModalScreen):
                             yield Label("Offline UCI Engine Path", classes="setting_label")
                             yield Input(value=cfg.bridge.uci_engine_path, placeholder="e.g. stockfish", id="bridge_uci_path")
 
-                with TabPane("Colors & Presets", id="tab_presets"):
+                with TabPane("4: Colors & Presets", id="tab_presets"):
                     with VerticalScroll():
                         with Horizontal(classes="setting_row"):
                             yield Label("Light Square Hex", classes="setting_label")
@@ -389,6 +393,31 @@ class SettingsScreen(VimModalScreen):
     def action_save_and_close(self) -> None:
         self._apply_form()
         self.dismiss(None)
+
+    def on_key(self, event: events.Key) -> None:
+        if not isinstance(self.focused, Input):
+            tab_map = {
+                "1": "tab_hints",
+                "2": "tab_board",
+                "3": "tab_layout",
+                "4": "tab_presets",
+            }
+            if event.character in tab_map:
+                self.query_one("#settings_tabs", TabbedContent).active = tab_map[event.character]
+                event.prevent_default()
+                event.stop()
+                return
+            if event.character in ("]", "L"):
+                self._switch_tab(forward=True)
+                event.prevent_default()
+                event.stop()
+                return
+            if event.character in ("[", "H"):
+                self._switch_tab(forward=False)
+                event.prevent_default()
+                event.stop()
+                return
+        super().on_key(event)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         tui: ChessTuiApp = self.app  # type: ignore[assignment]
