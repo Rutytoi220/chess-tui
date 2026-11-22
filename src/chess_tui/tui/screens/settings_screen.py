@@ -147,7 +147,9 @@ class SettingsScreen(VimModalScreen):
                             yield Label("Piece Art Style", classes="setting_label")
                             yield Select(
                                 [
-                                    ("Auto (block art on large, unicode small)", "auto"),
+                                    ("Auto (Staunton Braille on large, unicode small)", "auto"),
+                                    ("Staunton Braille Art (14x12 smooth)", "braille"),
+                                    ("Line Art (smooth box/curves)", "line-art"),
                                     ("Multi-line Block Art (5x3/7x3/9x4)", "block"),
                                     ("Unicode Filled (♚♛♜♝♞♟)", "unicode-filled"),
                                     ("Unicode Dual (♔♕ vs ♚♛)", "unicode-dual"),

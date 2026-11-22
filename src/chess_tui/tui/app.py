@@ -968,7 +968,7 @@ class ChessTuiApp(App[None]):
             event.stop()
             return
         if self._matches_binding(event, "cycle_pieces"):
-            styles = ["auto", "block", "unicode-dual", "unicode-filled", "ascii"]
+            styles = ["auto", "braille", "line-art", "block", "unicode-dual", "unicode-filled", "ascii"]
             cur = styles.index(self.config.board.piece_style) if self.config.board.piece_style in styles else 0
             self.config.board.piece_style = styles[(cur + 1) % len(styles)]
             self.config_manager.save()

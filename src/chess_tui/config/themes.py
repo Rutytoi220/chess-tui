@@ -56,8 +56,8 @@ THEMES: dict[str, ThemePalette] = {
         accent_fg="#81B64C",
         text_fg="#F1EFEA",
         muted_fg="#9E9B93",
-        light_square_bg="#B8BF9B",
-        dark_square_bg="#68894A",
+        light_square_bg="#AEB892",
+        dark_square_bg="#5E7F40",
         selected_bg="#F5F682",
         last_move_light_bg="#F6F669",
         last_move_dark_bg="#BACA2B",
@@ -605,6 +605,35 @@ BLOCK_SPRITES_9X4: dict[str, tuple[str, str, str, str]] = {
     "B": ("   ▄▀▄   ", "  ▄███▄  ", "   ███   ", " ███████ "),
     "N": ("  ▄████▄ ", " ████▀▀  ", "  ████▄  ", " ███████ "),
     "P": ("    ▄    ", "   ███   ", "   ███   ", "  █████  "),
+}
+
+# High-resolution Staunton Braille sprites (14x12 sub-pixels in 7x3 cells, 10x12 in 5x3 cells)
+BRAILLE_SPRITES_7X3: dict[str, tuple[str, str, str]] = {
+    "K": (" ⣀⡒⣿⢒⣀ ", "⠘⢿⣿⣿⣿⡿⠃", "⢀⣴⣿⣿⣿⣦⡀"),
+    "Q": ("⠳⣄⣷⣿⣾⣠⠞", " ⠙⣿⣿⣿⠋ ", "⢀⣼⣿⣿⣿⣧⡀"),
+    "R": (" ⢿⣤⣿⣤⡿ ", " ⢸⣿⣿⣿⡇ ", "⢀⣾⣿⣿⣿⣷⡀"),
+    "B": (" ⢀⣴⠟⣦⡀ ", " ⠈⢻⣷⡟⠁ ", "⢀⣴⣿⣿⣿⣦⡀"),
+    "N": ("⢀⣴⣿⠷⣷⣄ ", "⠈⠉⣀⣴⣿⡿ ", "⢀⣼⣿⣿⣿⣧⡀"),
+    "P": ("   ⢀⣀⡀  ", "   ⣻⣿⣟  ", "  ⣰⣿⣿⣿⣆ "),
+}
+
+BRAILLE_SPRITES_5X3: dict[str, tuple[str, str, str]] = {
+    "K": ("⢀⣒⣿⣒⡀", "⠙⣿⣿⣿⠋", "⣰⣿⣿⣿⣆"),
+    "Q": ("⠳⣾⣶⣷⠞", " ⢹⣿⡏ ", "⣠⣿⣿⣿⣄"),
+    "R": ("⠸⣧⣿⣼⠇", " ⣿⣿⣿ ", "⣰⣿⣿⣿⣆"),
+    "B": (" ⣴⢟⣦ ", " ⣹⣿⣏ ", "⣰⣿⣿⣿⣆"),
+    "N": ("⣠⣾⠿⣾⡄", "⠉⢀⣴⣿⡇", "⣠⣿⣿⣿⣇"),
+    "P": (" ⢀⣀⡀ ", " ⣻⣿⣟ ", "⣰⣿⣿⣿⣆"),
+}
+
+# Clean airy line-art sprites (7x3)
+LINE_SPRITES_7X3: dict[str, tuple[str, str, str]] = {
+    "K": ("  _+_  ", " ╭─┼─╮ ", " ┗━━━┛ "),
+    "Q": (" ╲│││\u2571 ", " ╰───╯ ", " ┗━━━┛ "),
+    "R": (" ┏┳┳┳┓ ", "  ┃ ┃  ", " ┗━━━┛ "),
+    "B": ("  \u2571┼╲  ", "  ╲ \u2571  ", " ╰───╯ "),
+    "N": ("  ╭━╮  ", " ◀▀ ┃  ", " ┗━━━┛ "),
+    "P": ("   ◯   ", "  \u2571 ╲  ", "  ╰─╯  "),
 }
 
 

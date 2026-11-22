@@ -16,6 +16,9 @@ from chess_tui.config.themes import (
     BLOCK_SPRITES_5X3,
     BLOCK_SPRITES_7X3,
     BLOCK_SPRITES_9X4,
+    BRAILLE_SPRITES_5X3,
+    BRAILLE_SPRITES_7X3,
+    LINE_SPRITES_7X3,
     PIECE_GLYPHS,
     ThemePalette,
 )
@@ -265,8 +268,8 @@ class BoardWidget(Widget):
 
         # Multi-row square rendering (`medium`, `large`, `huge`, `giant`, `auto`)
         style_pref = self.board_config.piece_style.lower().strip()
-        use_block = (
-            style_pref in ("block", "auto")
+        use_multiline = (
+            style_pref in ("auto", "braille", "line-art", "block")
             and piece is not None
             and w >= 7
             and h >= 3
@@ -276,14 +279,21 @@ class BoardWidget(Widget):
         if hint_pos == "center" and piece is None:
             hint_row = h // 2
 
-        # Block-art multi-line pieces occupy rows below hint_row (or cols 2..6 alongside hint on h==3)
-        if use_block and piece is not None:
-            if w >= 11 and h >= 5:
-                sprite_rows: tuple[str, ...] = BLOCK_SPRITES_9X4[piece.symbol().upper()]
+        # Multi-line Staunton Braille / Line-Art / Block pieces
+        if use_multiline and piece is not None:
+            sym_up = piece.symbol().upper()
+            if style_pref in ("auto", "braille"):
+                sprite_rows: tuple[str, ...] = (
+                    BRAILLE_SPRITES_7X3[sym_up] if w >= 8 else BRAILLE_SPRITES_5X3[sym_up]
+                )
+            elif style_pref == "line-art":
+                sprite_rows = LINE_SPRITES_7X3[sym_up]
+            elif w >= 11 and h >= 5:
+                sprite_rows = BLOCK_SPRITES_9X4[sym_up]
             elif w >= 8 and h >= 4:
-                sprite_rows = BLOCK_SPRITES_7X3[piece.symbol().upper()]
+                sprite_rows = BLOCK_SPRITES_7X3[sym_up]
             else:
-                sprite_rows = BLOCK_SPRITES_5X3[piece.symbol().upper()]
+                sprite_rows = BLOCK_SPRITES_5X3[sym_up]
             sprite_h = len(sprite_rows)
             sprite_start_row = 0 if h == 3 else 1
             if sprite_start_row <= row_idx < sprite_start_row + sprite_h:
@@ -321,7 +331,7 @@ class BoardWidget(Widget):
 
         # Center row for single-glyph pieces or legal-move dot
         center_row = h // 2
-        if row_idx == center_row and not use_block:
+        if row_idx == center_row and not use_multiline:
             if piece is not None:
                 p_fg = t.white_piece_fg if piece.color == chess.WHITE else t.black_piece_fg
                 p_sym = self._piece_symbol(piece)
