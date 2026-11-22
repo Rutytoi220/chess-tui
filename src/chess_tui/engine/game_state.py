@@ -141,10 +141,15 @@ class GameState:
         return move
 
     def needs_promotion_choice(self, from_sq: chess.Square, to_sq: chess.Square) -> bool:
-        """Return True if moving from_sq -> to_sq is a legal pawn promotion."""
+        """Return True if moving from_sq -> to_sq is a legal (or premove) pawn promotion."""
         piece = self.board.piece_at(from_sq)
         if piece is None or piece.piece_type != chess.PAWN:
             return False
+        if self.is_premove_allowed():
+            promo_rank = 7 if piece.color == chess.WHITE else 0
+            return chess.square_rank(to_sq) == promo_rank and abs(
+                chess.square_file(to_sq) - chess.square_file(from_sq)
+            ) <= 1
         promo_move = chess.Move(from_sq, to_sq, promotion=chess.QUEEN)
         return promo_move in self.board.legal_moves
 
@@ -218,6 +223,9 @@ class GameState:
         """
         old_fen = self.board.fen()
         old_moves = list(self.move_history_san)
+        old_mode = self.mode
+        old_player_color = self.player_color
+        old_game_over = self.game_over
 
         self.mode = GameMode.CHESSCOM_LIVE
         self.game_url = str(snapshot.get("url") or self.game_url)
@@ -333,7 +341,21 @@ class GameState:
         else:
             self._update_game_over_status()
 
-        return self.board.fen() != old_fen or self.move_history_san != old_moves
+        if self.game_over:
+            self.premove = None
+        elif self.premove is not None:
+            p_from = self.premove[0]
+            piece = self.board.piece_at(p_from)
+            if piece is None or (self.player_color is not None and piece.color != self.player_color):
+                self.premove = None
+
+        return (
+            self.board.fen() != old_fen
+            or self.move_history_san != old_moves
+            or self.mode != old_mode
+            or self.player_color != old_player_color
+            or self.game_over != old_game_over
+        )
 
 
 def parse_clock_seconds(clock_text: Any) -> float | None:

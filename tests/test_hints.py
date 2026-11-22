@@ -95,3 +95,9 @@ def test_case_insensitivity_and_premove_candidates():
     tag = hints[chess.E4]
     res = engine.match_buffer(hints, tag.lower())
     assert res.exact_square == chess.E4
+
+    # Stage 2 premove targets for White pawn on e4 should be only e5, d5, f5 (not all 63 squares!)
+    dest_hints = engine.compute_hints(
+        board, selected_square=chess.E4, premove_mode=True, player_color=chess.WHITE
+    )
+    assert set(dest_hints.keys()) == {chess.E5, chess.D5, chess.F5}

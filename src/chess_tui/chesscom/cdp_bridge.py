@@ -242,6 +242,20 @@ class CdpBridge:
 
         return True, f"Sent {from_sq}->{to_sq}" + (f"={promotion.upper()}" if promotion else "")
 
+    async def cancel_premove(self) -> None:
+        """Right-click the Chess.com board to clear any native browser premove highlight."""
+        coords = await self.eval_js(build_square_coords_js("e4", "e4"))
+        if isinstance(coords, dict) and coords.get("ok"):
+            p = coords["from"]
+            await self._call(
+                "Input.dispatchMouseEvent",
+                {"type": "mousePressed", "x": p["x"], "y": p["y"], "button": "right", "clickCount": 1},
+            )
+            await self._call(
+                "Input.dispatchMouseEvent",
+                {"type": "mouseReleased", "x": p["x"], "y": p["y"], "button": "right", "clickCount": 1},
+            )
+
     async def navigate(self, url: str) -> None:
         await self._call("Page.navigate", {"url": url})
 

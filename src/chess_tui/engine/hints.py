@@ -86,6 +86,41 @@ def visual_square_order(flipped: bool = False) -> list[chess.Square]:
     return [chess.square(f, r) for r in ranks for f in files]
 
 
+def pseudo_legal_premove_targets(board: chess.Board, from_sq: chess.Square) -> set[chess.Square]:
+    """Return squares a piece on `from_sq` can legitimately premove to (Chess.com rules)."""
+    piece = board.piece_at(from_sq)
+    if piece is None:
+        return set()
+
+    f = chess.square_file(from_sq)
+    r = chess.square_rank(from_sq)
+    if piece.piece_type == chess.PAWN:
+        targets: set[chess.Square] = set()
+        step = 1 if piece.color == chess.WHITE else -1
+        start_rank = 1 if piece.color == chess.WHITE else 6
+        if 0 <= r + step <= 7:
+            targets.add(chess.square(f, r + step))
+            if f > 0:
+                targets.add(chess.square(f - 1, r + step))
+            if f < 7:
+                targets.add(chess.square(f + 1, r + step))
+            if r == start_rank and 0 <= r + 2 * step <= 7:
+                targets.add(chess.square(f, r + 2 * step))
+        return targets
+
+    # Empty-board ray/step attacks handle sliding pieces past blockers (enemy/own pieces may move!)
+    empty = chess.Board.empty()
+    empty.set_piece_at(from_sq, piece)
+    targets = set(empty.attacks(from_sq))
+
+    if piece.piece_type == chess.KING:
+        if piece.color == chess.WHITE and from_sq == chess.E1:
+            targets.update({chess.G1, chess.C1})
+        elif piece.color == chess.BLACK and from_sq == chess.E8:
+            targets.update({chess.G8, chess.C8})
+    return targets
+
+
 class HintEngine:
     """Computes and matches Vimium-style hint tags for chess squares."""
 
@@ -191,7 +226,7 @@ class HintEngine:
             return [sq for sq in order if sq in valid]
 
         if premove_mode and self.config.show_premove_hints:
-            valid = {sq for sq in chess.SQUARES if sq != selected_square}
+            valid = pseudo_legal_premove_targets(board, selected_square)
         else:
             valid = {
                 move.to_square

@@ -20,6 +20,7 @@ from chess_tui.config.themes import (
     ThemePalette,
 )
 from chess_tui.engine.game_state import GameState
+from chess_tui.engine.hints import pseudo_legal_premove_targets
 
 
 BORDER_CHARS: dict[str, tuple[str, str, str, str, str, str]] = {
@@ -351,7 +352,7 @@ class BoardWidget(Widget):
         legal_targets: set[chess.Square] = set()
         if self.selected_square is not None:
             if self.game_state.is_premove_allowed():
-                legal_targets = {sq for sq in chess.SQUARES if sq != self.selected_square}
+                legal_targets = pseudo_legal_premove_targets(board, self.selected_square)
             else:
                 legal_targets = {
                     m.to_square for m in board.legal_moves if m.from_square == self.selected_square

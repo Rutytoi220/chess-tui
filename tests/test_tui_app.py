@@ -228,3 +228,63 @@ async def test_auto_board_sizing_and_block_art_pieces(tmp_path: Path):
         rendered = board_w.render().plain
         # Multi-line block-art silhouettes should be rendered on large terminals
         assert "███" in rendered
+
+
+async def test_live_premove_queue_executes_on_turn_change_and_esc_cancels(tmp_path: Path):
+    app = _make_app(tmp_path)
+    sent_moves: list[tuple[str, str, str | None]] = []
+
+    class FakeCdp:
+        connected = True
+
+        async def send_move(self, from_sq: str, to_sq: str, promo: str | None = None):
+            sent_moves.append((from_sq, to_sq, promo))
+            return True, f"Sent {from_sq}->{to_sq}"
+
+        async def cancel_premove(self):
+            pass
+
+        async def disconnect(self):
+            pass
+
+    async with app.run_test(size=(120, 42)) as pilot:
+        await pilot.pause()
+        app.cdp_bridge = FakeCdp()  # type: ignore[assignment]
+
+        # Opponent (Black) to move; user is White
+        await app._on_bridge_state(
+            {
+                "url": "https://www.chess.com/game/live/123",
+                "hasBoard": True,
+                "flipped": False,
+                "moves": ["e4"],
+                "topPlayer": {"username": "Opp", "clock": "09:58", "isActive": True},
+                "bottomPlayer": {"username": "Hero", "clock": "10:00", "isActive": False},
+            }
+        )
+        assert app.game_state.is_premove_allowed() is True
+
+        # Queue premove Nf3 (g1 -> f3) while Black is thinking
+        await app.execute_move(chess.G1, chess.F3)
+        assert app.game_state.premove == (chess.G1, chess.F3, None)
+        assert sent_moves == []
+
+        # Pressing Esc cancels queued premove
+        await pilot.press("escape")
+        await pilot.pause()
+        assert app.game_state.premove is None
+
+        # Re-queue premove Nf3 and simulate opponent playing ...e5
+        await app.execute_move(chess.G1, chess.F3)
+        await app._on_bridge_state(
+            {
+                "url": "https://www.chess.com/game/live/123",
+                "hasBoard": True,
+                "flipped": False,
+                "moves": ["e4", "e5"],
+                "topPlayer": {"username": "Opp", "clock": "09:56", "isActive": False},
+                "bottomPlayer": {"username": "Hero", "clock": "10:00", "isActive": True},
+            }
+        )
+        assert app.game_state.premove is None
+        assert sent_moves == [("g1", "f3", None)]

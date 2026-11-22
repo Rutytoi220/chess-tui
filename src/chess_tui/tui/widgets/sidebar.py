@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import chess
 from rich.style import Style
 from rich.text import Text
 from textual.widget import Widget
@@ -152,6 +153,11 @@ class SidebarWidget(Widget):
         if gs.game_over:
             out.append("GAME OVER  ", Style(color=t.hint_fg, bgcolor=t.warning_fg, bold=True))
             out.append(f" {gs.result_text} ({gs.result_reason})\n\n", Style(color=t.warning_fg, bold=True))
+        elif gs.premove is not None:
+            p_from = chess.square_name(gs.premove[0]).upper()
+            p_to = chess.square_name(gs.premove[1]).upper()
+            out.append(" PREMOVE ", Style(color=t.hint_fg, bgcolor=t.premove_bg, bold=True))
+            out.append(f" {p_from} → {p_to} (Esc cancel)\n\n", Style(color=t.warning_fg, bold=True))
         elif gs.board.is_check():
             out.append("CHECK!\n\n", Style(color=t.error_fg, bold=True))
 

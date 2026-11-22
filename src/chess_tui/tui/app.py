@@ -25,7 +25,7 @@ from chess_tui.config.manager import ConfigManager
 from chess_tui.config.schema import ChessTuiConfig
 from chess_tui.config.themes import THEMES, ThemePalette, resolve_theme
 from chess_tui.engine.game_state import GameMode, GameState, PlayerInfo
-from chess_tui.engine.hints import HintEngine
+from chess_tui.engine.hints import HintEngine, pseudo_legal_premove_targets
 from chess_tui.engine.uci import LocalUciEngine, find_uci_engine
 from chess_tui.tui.screens import (
     AccountsScreen,
@@ -468,11 +468,53 @@ class ChessTuiApp(App[None]):
                 self.bell()
             self._last_turn_seen = self.game_state.board.turn
             self.recompute_hints()
+
+        # Execute queued TUI premove the instant our turn arrives
+        if (
+            not self._in_lobby_preview
+            and self.game_state.premove is not None
+            and self.game_state.is_users_turn()
+        ):
+            p_from, p_to, p_promo = self.game_state.premove
+            self.game_state.premove = None
+            piece = self.game_state.board.piece_at(p_from)
+            if (
+                piece is not None
+                and piece.piece_type == chess.PAWN
+                and p_promo is None
+                and chess.square_rank(p_to) in (0, 7)
+            ):
+                p_promo = chess.QUEEN
+            candidate = chess.Move(p_from, p_to, promotion=p_promo)
+            if candidate in self.game_state.board.legal_moves:
+                from_name = chess.square_name(p_from)
+                to_name = chess.square_name(p_to)
+                promo_char = chess.piece_symbol(p_promo).lower() if p_promo else None
+                msg = await self._dispatch_bridge_move(from_name, to_name, promo_char)
+                self._set_status(f"Premove executed: {msg}")
+                self._log(f"Premove executed: {from_name}->{to_name}")
+            else:
+                self._set_status("Queued premove became illegal — cancelled")
+                self._log("Queued premove cancelled (illegal)")
+            self.recompute_hints()
+
         if self._is_searching_match:
             self._set_status("Searching Chess.com for an opponent...")
         elif self._in_lobby_preview:
             self._set_status("In Chess.com lobby (not in a game yet) — press Ctrl+P to Start Match")
         self.sync_ui()
+
+    async def _dispatch_bridge_move(
+        self, from_name: str, to_name: str, promo_char: str | None
+    ) -> str:
+        """Send a move across the active CDP or Browser Extension bridge."""
+        if self.cdp_bridge and self.cdp_bridge.connected:
+            _, msg = await self.cdp_bridge.send_move(from_name, to_name, promo_char)
+            return msg
+        if self.ws_bridge.client_count > 0:
+            _, msg = await self.ws_bridge.send_move(from_name, to_name, promo_char)
+            return msg
+        return "No active Chess.com bridge"
 
     # ------------------------------------------------------------------
     # Offline / Puzzle / Archive Modes
@@ -601,21 +643,25 @@ class ChessTuiApp(App[None]):
                 return
             promo_char = chess.piece_symbol(promotion).lower() if promotion else None
             if self.game_state.is_premove_allowed():
-                self.game_state.premove = (from_sq, to_sq, promotion)
-            else:
-                # Validate legality locally before clicking browser
-                test_mv = chess.Move(from_sq, to_sq, promotion=promotion)
-                if test_mv not in self.game_state.board.legal_moves:
-                    self._set_status(f"Illegal move: {from_name}->{to_name}")
+                if to_sq not in pseudo_legal_premove_targets(self.game_state.board, from_sq):
+                    self._set_status(f"Invalid premove target: {from_name}->{to_name}")
                     self._clear_selection()
                     return
+                self.game_state.premove = (from_sq, to_sq, promotion)
+                msg = f"Premove queued: {from_name.upper()} → {to_name.upper()} (Esc to cancel)"
+                self._set_status(msg)
+                self._log(msg)
+                self._clear_selection()
+                return
 
-            msg = "No active Chess.com bridge"
-            if self.cdp_bridge and self.cdp_bridge.connected:
-                _, msg = await self.cdp_bridge.send_move(from_name, to_name, promo_char)
-            elif self.ws_bridge.client_count > 0:
-                _, msg = await self.ws_bridge.send_move(from_name, to_name, promo_char)
+            # Validate legality locally before clicking browser
+            test_mv = chess.Move(from_sq, to_sq, promotion=promotion)
+            if test_mv not in self.game_state.board.legal_moves:
+                self._set_status(f"Illegal move: {from_name}->{to_name}")
+                self._clear_selection()
+                return
 
+            msg = await self._dispatch_bridge_move(from_name, to_name, promo_char)
             self._set_status(msg)
             self._log(msg)
             self._clear_selection()
@@ -716,23 +762,38 @@ class ChessTuiApp(App[None]):
 
         # Clicking another friendly piece when it isn't a legal capture switches selection cleanly
         target_piece = self.game_state.board.piece_at(sq)
-        is_legal_dest = any(
-            m.from_square == self.selected_square and m.to_square == sq
-            for m in self.game_state.board.legal_moves
-        )
-        if (
-            not is_legal_dest
-            and not self.game_state.is_premove_allowed()
-            and target_piece is not None
-            and target_piece.color == self.game_state.board.turn
-            and any(m.from_square == sq for m in self.game_state.board.legal_moves)
-        ):
-            self.selected_square = sq
-            self.hint_buffer = ""
-            self.recompute_hints()
-            self._set_status(f"Switched selection to {chess.square_name(sq).upper()}")
-            self.sync_ui()
-            return
+        if self.game_state.is_premove_allowed():
+            is_premove_dest = sq in pseudo_legal_premove_targets(
+                self.game_state.board, self.selected_square
+            )
+            if (
+                not is_premove_dest
+                and target_piece is not None
+                and target_piece.color == self.game_state.player_color
+            ):
+                self.selected_square = sq
+                self.hint_buffer = ""
+                self.recompute_hints()
+                self._set_status(f"Switched premove piece to {chess.square_name(sq).upper()}")
+                self.sync_ui()
+                return
+        else:
+            is_legal_dest = any(
+                m.from_square == self.selected_square and m.to_square == sq
+                for m in self.game_state.board.legal_moves
+            )
+            if (
+                not is_legal_dest
+                and target_piece is not None
+                and target_piece.color == self.game_state.board.turn
+                and any(m.from_square == sq for m in self.game_state.board.legal_moves)
+            ):
+                self.selected_square = sq
+                self.hint_buffer = ""
+                self.recompute_hints()
+                self._set_status(f"Switched selection to {chess.square_name(sq).upper()}")
+                self.sync_ui()
+                return
 
         await self.execute_move(self.selected_square, sq)
 
@@ -772,8 +833,20 @@ class ChessTuiApp(App[None]):
             event.stop()
             return
         if self._matches_binding(event, "cancel"):
-            self._clear_selection()
-            self._set_status("Cleared selection")
+            if (
+                self.selected_square is None
+                and not self.hint_buffer
+                and self.pending_promotion is None
+                and self.game_state.premove is not None
+            ):
+                self.game_state.premove = None
+                if self.cdp_bridge and self.cdp_bridge.connected:
+                    await self.cdp_bridge.cancel_premove()
+                self._set_status("Cancelled queued premove")
+                self.sync_ui()
+            else:
+                self._clear_selection()
+                self._set_status("Cleared selection")
             event.stop()
             return
         if self._matches_binding(event, "command_palette"):
