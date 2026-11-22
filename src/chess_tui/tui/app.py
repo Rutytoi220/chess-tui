@@ -438,8 +438,9 @@ class ChessTuiApp(App[None]):
             return
 
         if not snapshot.get("hasBoard"):
+            who = logged_user or self.active_username or self.active_account_alias or "connected"
             self._set_status(
-                f"Browser connected ({logged_user or 'guest'}) — open a game on Chess.com or press Ctrl+P"
+                f"Browser connected ({who}) — open a game on Chess.com or press Ctrl+P"
             )
             self.sync_ui()
             return

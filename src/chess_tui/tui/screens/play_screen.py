@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import Button, Input, Label, Static
 
 from chess_tui.tui.screens.base import VimModalScreen
@@ -23,12 +23,16 @@ class PlayScreen(VimModalScreen):
         background: rgba(0, 0, 0, 0.72);
     }
     PlayScreen #play_dialog {
-        width: 74;
-        height: auto;
-        max-height: 34;
+        width: 78;
+        max-width: 94%;
+        height: 36;
+        max-height: 92%;
         border: round $accent;
         background: $surface;
         padding: 1 2;
+    }
+    PlayScreen VerticalScroll {
+        height: 1fr;
     }
     PlayScreen .title {
         text-style: bold;
@@ -45,7 +49,11 @@ class PlayScreen(VimModalScreen):
         margin-top: 1;
     }
     PlayScreen Button {
+        min-width: 11;
         margin-right: 1;
+    }
+    PlayScreen .tc_btn {
+        min-width: 12;
     }
     PlayScreen Input {
         width: 1fr;
@@ -75,7 +83,7 @@ class PlayScreen(VimModalScreen):
 
         with Container(id="play_dialog"):
             yield Label("PLAY / PUZZLES / MODES", classes="title")
-            with Vertical():
+            with VerticalScroll():
                 yield Static(conn_msg, id="play_conn_banner")
                 if not is_connected:
                     with Horizontal(classes="row"):
@@ -83,12 +91,13 @@ class PlayScreen(VimModalScreen):
 
                 yield Label("Chess.com Live Matchmaking (Connected Browser)", classes="sec")
                 with Horizontal(classes="row"):
-                    yield Button("1 min", id="tc_1min")
-                    yield Button("3 min", id="tc_3min", variant="success")
-                    yield Button("3 | 2", id="tc_3_2")
-                    yield Button("5 min", id="tc_5min")
-                    yield Button("10 min", id="tc_10min", variant="primary")
-                    yield Button("15 | 10", id="tc_15_10")
+                    yield Button("1 min", id="tc_1min", classes="tc_btn")
+                    yield Button("3 min", id="tc_3min", classes="tc_btn", variant="success")
+                    yield Button("3 | 2", id="tc_3_2", classes="tc_btn")
+                with Horizontal(classes="row"):
+                    yield Button("5 min", id="tc_5min", classes="tc_btn")
+                    yield Button("10 min", id="tc_10min", classes="tc_btn", variant="primary")
+                    yield Button("15 | 10", id="tc_15_10", classes="tc_btn")
                 with Horizontal(classes="row"):
                     yield Button("Open /play/online", id="btn_cc_online")
                     yield Button("vs Computer", id="btn_cc_bot")
@@ -109,9 +118,9 @@ class PlayScreen(VimModalScreen):
                     yield Input(id="fen_input", placeholder="Paste FEN string...")
                     yield Button("Load FEN", id="btn_load_fen")
 
-                yield Static("", id="play_status")
-                with Horizontal(classes="row"):
-                    yield Button("Close [Esc]", id="btn_close")
+            yield Static("", id="play_status")
+            with Horizontal(classes="row"):
+                yield Button("Close [Esc]", id="btn_close")
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         tui: ChessTuiApp = self.app  # type: ignore[assignment]

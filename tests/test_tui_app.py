@@ -199,10 +199,13 @@ async def test_hjkl_cursor_moves_on_board_and_inside_modals(tmp_path: Path):
         await pilot.pause()
         assert app.game_state.move_history_san == ["e4"]
 
-        # Inside PlayScreen modal, j/k/h/l navigate focus between buttons cleanly
+        # Inside PlayScreen modal, j/k/h/l navigate focus between buttons cleanly and 10 min fits inside dialog
         await pilot.press("ctrl+p")
         await pilot.pause()
         assert isinstance(app.screen, PlayScreen)
+        dialog = app.screen.query_one("#play_dialog")
+        btn_10m = app.screen.query_one("#tc_10min")
+        assert btn_10m.region.right <= dialog.region.right
         first_focus = app.screen.focused
         await pilot.press("j")
         await pilot.pause()
