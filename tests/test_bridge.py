@@ -12,7 +12,9 @@ from chess_tui.chesscom.accounts import AccountManager
 from chess_tui.chesscom.dom_scripts import (
     READ_STATE_JS,
     build_click_action_js,
+    build_click_play_button_js,
     build_promotion_coords_js,
+    build_select_time_control_js,
     build_square_coords_js,
 )
 from chess_tui.chesscom.ws_bridge import ExtensionWsBridge
@@ -81,12 +83,17 @@ def test_launch_browser_builds_low_ram_headless_flags(tmp_path: Path, monkeypatc
 
 def test_dom_script_builders():
     assert "wc-chess-board" in READ_STATE_JS
+    assert "isLobbyPreview" in READ_STATE_JS
     coords_js = build_square_coords_js("e2", "e4")
     assert '"e2"' in coords_js and '"e4"' in coords_js
     promo_js = build_promotion_coords_js("q")
     assert "wq" in promo_js
     act_js = build_click_action_js("resign")
     assert '"resign"' in act_js
+    tc_js = build_select_time_control_js("10 min")
+    assert '"10 min"' in tc_js
+    play_js = build_click_play_button_js()
+    assert "new-game-index-play" in play_js
 
 
 async def test_extension_ws_bridge_roundtrip():

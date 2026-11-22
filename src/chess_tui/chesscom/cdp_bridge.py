@@ -252,15 +252,23 @@ class CdpBridge:
         return False, str((res or {}).get("error") or f"Action '{action}' failed")
 
     async def start_match(self, time_control: str = "") -> tuple[bool, str]:
-        """Select a time control (if given) and click Play on Chess.com /play/online."""
+        """Select a time control (if given) and click Play via genuine CDP mouse events."""
         if time_control:
             res = await self.eval_js(build_select_time_control_js(time_control))
-            if isinstance(res, dict) and res.get("openedSelector"):
-                await asyncio.sleep(0.2)
-                await self.eval_js(build_select_time_control_js(time_control))
-            await asyncio.sleep(0.15)
+            if isinstance(res, dict) and res.get("action") == "open_selector" and "x" in res:
+                await self._mouse_click(int(res["x"]), int(res["y"]))
+                await asyncio.sleep(0.35)
+                res = await self.eval_js(build_select_time_control_js(time_control))
+            if isinstance(res, dict) and res.get("action") == "pick" and "x" in res:
+                await self._mouse_click(int(res["x"]), int(res["y"]))
+                await asyncio.sleep(0.25)
+
         play_res = await self.eval_js(build_click_play_button_js())
-        if isinstance(play_res, dict) and play_res.get("ok"):
+        if isinstance(play_res, dict) and play_res.get("alreadySearching"):
+            return True, "Already searching for a Chess.com opponent..."
+        if isinstance(play_res, dict) and play_res.get("ok") and "x" in play_res:
+            await self._mouse_click(int(play_res["x"]), int(play_res["y"]))
+            await asyncio.sleep(0.25)
             label = time_control or "default"
-            return True, f"Searching Chess.com match ({label})..."
+            return True, f"Clicked '{play_res.get('clicked', 'play')}' ({label}) — waiting for match..."
         return False, str((play_res or {}).get("error") or "Open chess.com/play/online and click Play")

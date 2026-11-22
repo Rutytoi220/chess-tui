@@ -18,6 +18,7 @@ from textual.widgets import Static
 
 from chess_tui.chesscom.accounts import AccountManager
 from chess_tui.chesscom.cdp_bridge import CdpBridge
+from chess_tui.chesscom.dom_scripts import build_click_play_button_js
 from chess_tui.chesscom.pubapi import ArchivedGame, ChessComPubApi
 from chess_tui.chesscom.ws_bridge import ExtensionWsBridge
 from chess_tui.config.manager import ConfigManager
@@ -85,6 +86,8 @@ class ChessTuiApp(App[None]):
         # Bridges & optional offline UCI engine
         self.active_account_alias: str = ""
         self.active_username: str = ""
+        self._in_lobby_preview: bool = False
+        self._is_searching_match: bool = False
         self.cdp_bridge: CdpBridge | None = None
         self.ws_bridge = ExtensionWsBridge(
             host=self.config.bridge.extension_ws_host,
@@ -397,13 +400,17 @@ class ChessTuiApp(App[None]):
         return False
 
     async def start_chesscom_match(self, time_control: str = "") -> tuple[bool, str]:
-        """Navigate to chess.com/play/online and launch a live game."""
+        """Navigate to chess.com/play/online, wait for controls, and launch a live game."""
         if self.cdp_bridge and self.cdp_bridge.connected:
             state = await self.cdp_bridge.read_state()
             cur_url = str((state or {}).get("url") or "")
             if "/play/online" not in cur_url:
                 await self.cdp_bridge.navigate("https://www.chess.com/play/online")
-                await asyncio.sleep(1.4)
+                for _ in range(12):
+                    await asyncio.sleep(0.35)
+                    probe = await self.cdp_bridge.eval_js(build_click_play_button_js())
+                    if isinstance(probe, dict) and probe.get("ok"):
+                        break
             ok, msg = await self.cdp_bridge.start_match(time_control)
             self._set_status(msg)
             self._log(msg)
@@ -445,6 +452,9 @@ class ChessTuiApp(App[None]):
             self.sync_ui()
             return
 
+        self._in_lobby_preview = bool(snapshot.get("isLobbyPreview", False))
+        self._is_searching_match = bool(snapshot.get("isSearching", False))
+
         changed = self.game_state.sync_from_bridge(snapshot)
         if changed:
             self.selected_square = None
@@ -458,6 +468,10 @@ class ChessTuiApp(App[None]):
                 self.bell()
             self._last_turn_seen = self.game_state.board.turn
             self.recompute_hints()
+        if self._is_searching_match:
+            self._set_status("Searching Chess.com for an opponent...")
+        elif self._in_lobby_preview:
+            self._set_status("In Chess.com lobby (not in a game yet) — press Ctrl+P to Start Match")
         self.sync_ui()
 
     # ------------------------------------------------------------------
@@ -581,6 +595,10 @@ class ChessTuiApp(App[None]):
 
         # Live Chess.com Bridge mode
         if self.game_state.mode == GameMode.CHESSCOM_LIVE:
+            if self._in_lobby_preview:
+                self._set_status("Match hasn't started yet — press Ctrl+P to start a game!")
+                self._clear_selection()
+                return
             promo_char = chess.piece_symbol(promotion).lower() if promotion else None
             if self.game_state.is_premove_allowed():
                 self.game_state.premove = (from_sq, to_sq, promotion)

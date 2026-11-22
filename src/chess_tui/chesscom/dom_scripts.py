@@ -165,6 +165,31 @@ READ_STATE_JS = r"""
   // Promotion dialog presence
   const promoOpen = !!root.querySelector(".promotion-window, .promotion-piece");
 
+  // Detect whether /play/online is still showing the pre-match lobby preview board vs an active live match
+  const inOnlineLobbyUrl = pathname.startsWith("/play/online") && !pathname.includes("/game/");
+  const nonNavButtons = Array.from(document.querySelectorAll("button")).filter(b => {
+    if (b.closest("nav, [role='navigation'], .nav-menu-area")) return false;
+    const r = b.getBoundingClientRect();
+    return r.width > 20 && r.height > 15;
+  });
+  const isSearching = nonNavButtons.some(b => {
+    const t = (b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+    return t === "cancel" || t.includes("cancel seek") || t.includes("searching");
+  });
+  const hasStartBtn = nonNavButtons.some(b => {
+    const t = (b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+    return t === "play" || t === "start game" || t === "new game";
+  });
+  const isLobbyPreview = !!(
+    inOnlineLobbyUrl &&
+    (isSearching ||
+      hasStartBtn ||
+      ((topPlayer.username === "Opponent" || !topPlayer.username) &&
+        !topPlayer.isActive &&
+        !bottomPlayer.isActive &&
+        moves.length === 0))
+  );
+
   // Game over modal
   const gameOverModal = document.querySelector(
     ".game-over-modal-content, .modal-game-over-component, .game-result-component"
@@ -186,6 +211,8 @@ READ_STATE_JS = r"""
     hasChallenge,
     loggedInUser,
     hasBoard: true,
+    isLobbyPreview,
+    isSearching,
     flipped,
     pieces,
     lastMoveSquares,
@@ -321,51 +348,131 @@ def build_click_action_js(action: str) -> str:
 
 
 def build_select_time_control_js(time_control: str) -> str:
-    """Return JS opening Chess.com's time-control selector and picking `time_control` (e.g. '3 min')."""
+    """Return JS locating Chess.com's time-control selector or target option coordinates."""
     tc = json.dumps(time_control.strip().lower())
     return f"""
 (() => {{
   const want = {tc};
   if (!want) return {{ ok: true, skipped: true }};
   const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+  const aliases = [want];
+  if (want.endsWith(" min")) {{
+    const mins = want.replace(" min", "").trim();
+    aliases.push(`${{mins}} | 0`, `${{mins}}|0`, `${{mins}}+0`, `${{mins}} min | 0 sec`);
+  }} else if (want.includes("|")) {{
+    aliases.push(want.replace(/\\s*\\|\\s*/g, "|"), want.replace(/\\s*\\|\\s*/g, " + "), want.replace(/\\s*\\|\\s*/g, "+"));
+  }}
+  const matchesWant = txt => aliases.some(a => txt === a || txt.startsWith(a + " "));
 
-  // Check if time option is already visible on page
-  const allBtns = Array.from(document.querySelectorAll("button, [role='button']"));
-  let match = allBtns.find(b => norm(b.textContent) === want);
-  if (match) {{
-    match.click();
-    return {{ ok: true, selected: norm(match.textContent) }};
+  const isVisibleNonNav = el => {{
+    if (!el || el.disabled) return false;
+    if (el.closest("nav, [role='navigation'], .nav-menu-area")) return false;
+    const r = el.getBoundingClientRect();
+    const st = window.getComputedStyle(el);
+    return r.width > 20 && r.height > 15 && st.visibility !== "hidden" && st.display !== "none";
+  }};
+  const centerOf = el => {{
+    const r = el.getBoundingClientRect();
+    return {{ x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }};
+  }};
+
+  const allBtns = Array.from(document.querySelectorAll("button, [role='button']")).filter(isVisibleNonNav);
+  const timeLikeBtns = allBtns.filter(b => /^\\d+\\s*(min|\\|\\s*\\d+|\\+\\s*\\d+)/i.test(norm(b.textContent)));
+
+  // If multiple time options are visible, the picker is already open -> pick our target!
+  if (timeLikeBtns.length >= 2) {{
+    const pick = timeLikeBtns.find(b => matchesWant(norm(b.textContent)));
+    if (pick) {{
+      return {{ ok: true, action: "pick", selected: norm(pick.textContent), ...centerOf(pick) }};
+    }}
   }}
 
-  // Otherwise open the time selector dropdown
-  const toggle = document.querySelector(
-    ".time-selector-component, [data-cy='time-control-selector'], .selector-button-button"
-  );
+  // Check if a selector dropdown button is present
+  const toggleSelectors = [
+    "[data-cy='time-control-selector']",
+    ".time-selector-component button",
+    ".time-selector-component",
+    ".selector-button-button",
+    "button[class*='selector-button']"
+  ];
+  let toggle = null;
+  for (const sel of toggleSelectors) {{
+    const found = Array.from(document.querySelectorAll(sel)).find(isVisibleNonNav);
+    if (found) {{
+      toggle = found;
+      break;
+    }}
+  }}
+  if (!toggle && timeLikeBtns.length === 1) {{
+    toggle = timeLikeBtns[0];
+  }}
+
   if (toggle) {{
-    toggle.click();
-    return {{ ok: false, openedSelector: true }};
+    const curTxt = norm(toggle.textContent);
+    if (matchesWant(curTxt)) {{
+      return {{ ok: true, alreadySelected: true, selected: curTxt }};
+    }}
+    return {{ ok: false, action: "open_selector", current: curTxt, ...centerOf(toggle) }};
   }}
-  return {{ ok: false, error: "Time selector not found" }};
+  return {{ ok: false, error: "Time-control selector not found on page" }};
 }})()
 """
 
 
 def build_click_play_button_js() -> str:
-    """Return JS clicking the primary Play / Start Game button on /play/online."""
+    """Return JS locating the visible Play / Start Game button outside navigation menus."""
     return """
 (() => {
-  const candidates = [
-    ...document.querySelectorAll("button[data-cy='new-game-index-play']"),
-    ...document.querySelectorAll("button.cc-button-primary, button.ui_v5-button-primary"),
-    ...document.querySelectorAll("button")
+  const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+  const isVisibleNonNav = el => {
+    if (!el || el.disabled || el.getAttribute("aria-disabled") === "true") return false;
+    if (el.closest("nav, [role='navigation'], .nav-menu-area, header")) return false;
+    const r = el.getBoundingClientRect();
+    const st = window.getComputedStyle(el);
+    return r.width >= 40 && r.height >= 20 && st.visibility !== "hidden" && st.display !== "none";
+  };
+  const centerOf = el => {
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  };
+
+  const allBtns = Array.from(document.querySelectorAll("button, a[role='button']")).filter(isVisibleNonNav);
+  const cancelBtn = allBtns.find(b => {
+    const t = norm(b.textContent);
+    return t === "cancel" || t.includes("cancel seek");
+  });
+  if (cancelBtn) {
+    return { ok: true, alreadySearching: true };
+  }
+
+  const prioritySelectors = [
+    "button[data-cy='new-game-index-play']",
+    "button[data-test*='play']",
+    ".new-game-index-component button.cc-button-primary",
+    ".create-game-component button.cc-button-primary",
+    "#board-layout-sidebar button.cc-button-primary",
+    "#board-layout-sidebar button.ui_v5-button-primary",
+    "button.cc-button-primary",
+    "button.ui_v5-button-primary"
   ];
-  for (const el of candidates) {
-    const txt = (el.textContent || "").replace(/\\s+/g, " ").trim().toLowerCase();
-    if (txt === "play" || txt === "start game" || txt === "new game") {
-      el.click();
-      return { ok: true, clicked: txt };
+  const playTexts = new Set(["play", "start game", "new game", "find match", "create game"]);
+
+  for (const sel of prioritySelectors) {
+    const matches = Array.from(document.querySelectorAll(sel)).filter(isVisibleNonNav);
+    for (const el of matches) {
+      const txt = norm(el.textContent);
+      if (playTexts.has(txt) || txt.startsWith("play ")) {
+        return { ok: true, clicked: txt, ...centerOf(el) };
+      }
     }
   }
-  return { ok: false, error: "Play button not found on page" };
+
+  for (const el of allBtns) {
+    const txt = norm(el.textContent);
+    if (playTexts.has(txt)) {
+      return { ok: true, clicked: txt, ...centerOf(el) };
+    }
+  }
+  return { ok: false, error: "Start/Play button not found outside navigation" };
 })()
 """
