@@ -13,29 +13,36 @@ READ_STATE_JS = r"""
 
   // Detect logged-in Chess.com username from header/nav/page globals without touching credentials
   let loggedInUser = "";
-  const userSelectors = [
-    "[data-user-activity-key]",
-    ".nav-user-popover-username",
-    ".home-username-link",
-    "a.user-username-link[href*='/member/']",
-    ".sidebar-user-username",
-    "#user-popover-trigger",
-    "[data-username]"
-  ];
-  for (const sel of userSelectors) {
-    const el = document.querySelector(sel);
-    if (!el) continue;
-    const candidate =
-      el.getAttribute("data-username") ||
-      el.getAttribute("data-user-activity-key") ||
-      (el.textContent || "").trim();
-    if (candidate && candidate.length <= 40 && !candidate.includes("Log In")) {
-      loggedInUser = candidate.replace(/^@/, "");
-      break;
-    }
+  const ignoredNavWords = new Set([
+    "profile", "home", "play", "puzzles", "learn", "watch", "news",
+    "social", "more", "settings", "log in", "login", "sign up", "signup"
+  ]);
+  if (window.context && window.context.user && window.context.user.username) {
+    loggedInUser = String(window.context.user.username).trim();
   }
-  if (!loggedInUser && window.context && window.context.user && window.context.user.username) {
-    loggedInUser = String(window.context.user.username);
+  if (!loggedInUser) {
+    const userSelectors = [
+      ".nav-user-popover-username",
+      ".home-username-link",
+      ".sidebar-user-username",
+      "a.user-username-link[href*='/member/']",
+      ".user-menu-username",
+      "[data-username]"
+    ];
+    for (const sel of userSelectors) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      let candidate = el.getAttribute("data-username") || (el.textContent || "").trim();
+      if ((!candidate || ignoredNavWords.has(candidate.toLowerCase())) && el.getAttribute("href")) {
+        const m = el.getAttribute("href").match(/\/member\/([^/?#]+)/);
+        if (m) candidate = m[1];
+      }
+      candidate = (candidate || "").replace(/^@/, "").trim();
+      if (candidate && candidate.length <= 40 && !ignoredNavWords.has(candidate.toLowerCase())) {
+        loggedInUser = candidate;
+        break;
+      }
+    }
   }
 
   // Locate chessboard component

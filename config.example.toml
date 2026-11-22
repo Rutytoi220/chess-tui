@@ -17,8 +17,8 @@ enabled = true
 # "static"  = every square keeps a fixed 2-letter Vimium tag (great for muscle memory)
 # "smart"   = shortest prefix-free Vimium tags (1 char when <= alphabet length)
 mode = "dynamic"
-# Customize your hint alphabet (home row "ASDFGHJKL", full "ABCDEFGHJKLMNPQRSTUVWXYZ", etc.)
-alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+# Customize your hint alphabet (home row "ASDFGHJKL", default excludes HJKL so hjkl cursor always works!)
+alphabet = "ABCDEFGMNOPQRSTUVWXYZ"
 # Minimum tag length (2 gives "AB", "BC" style codes)
 min_length = 2
 case_sensitive = false
@@ -78,6 +78,8 @@ sound_bell = false
 [input]
 allow_san_command = true
 allow_cursor_navigation = true
+# "always" = hjkl always move board cursor & modal focus, "auto" = yield when HJKL in hint alphabet, "off" = arrows only
+hjkl_navigation = "always"
 allow_mouse_clicks = true
 confirm_resign = true
 

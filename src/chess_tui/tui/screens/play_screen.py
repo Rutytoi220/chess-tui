@@ -6,14 +6,15 @@ from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
+
+from chess_tui.tui.screens.base import VimModalScreen
 
 if TYPE_CHECKING:
     from chess_tui.tui.app import ChessTuiApp
 
 
-class PlayScreen(ModalScreen[None]):
+class PlayScreen(VimModalScreen):
     """Choose Chess.com live play, Daily Puzzle, local 2-player, UCI bot, or custom FEN."""
 
     DEFAULT_CSS = """

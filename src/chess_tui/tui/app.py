@@ -204,6 +204,11 @@ class ChessTuiApp(App[None]):
             flipped=self.effective_flipped(),
             premove_mode=premove,
             player_color=self.game_state.player_color,
+            exclude_chars=(
+                "HJKLhjkl"
+                if (self.config.input.hjkl_navigation == "always" and self.config.hints.mode != "coordinate")
+                else ""
+            ),
         )
 
     def _connection_label(self) -> str:
@@ -371,10 +376,12 @@ class ChessTuiApp(App[None]):
     async def _on_bridge_state(self, snapshot: dict[str, Any]) -> None:
         """Handle live DOM state pushed from CDP or Browser Extension."""
         logged_user = str(snapshot.get("loggedInUser") or "").strip()
-        if logged_user:
+        if logged_user and logged_user.lower() not in {"profile", "home", "play", "puzzles"}:
             self.active_username = logged_user
             if self.active_account_alias:
                 self.account_manager.update_username(self.active_account_alias, logged_user)
+        elif self.active_username.lower() == "profile":
+            self.active_username = ""
 
         if snapshot.get("isLoginPage") and not snapshot.get("hasBoard"):
             self._set_status("Complete Chess.com login in the visible browser window...")
@@ -788,11 +795,11 @@ class ChessTuiApp(App[None]):
 
         # Archive Replay navigation
         if self.game_state.mode == GameMode.CHESSCOM_ARCHIVE:
-            if event.key in ("right", "n", "space"):
+            if event.key in ("right", "l", "n", "space"):
                 self._step_archive(1)
                 event.stop()
                 return
-            if event.key in ("left", "p"):
+            if event.key in ("left", "h", "p"):
                 self._step_archive(-1)
                 event.stop()
                 return
@@ -829,11 +836,28 @@ class ChessTuiApp(App[None]):
             event.stop()
             return
 
-        # Cursor navigation (arrows)
-        if self.config.input.allow_cursor_navigation and event.key in ("up", "down", "left", "right"):
-            self._move_cursor(event.key)
-            event.stop()
-            return
+        # Cursor navigation (arrows + Vim hjkl)
+        hjkl_map = {"h": "left", "j": "down", "k": "up", "l": "right"}
+        if self.config.input.allow_cursor_navigation:
+            direction: str | None = None
+            if event.key in ("up", "down", "left", "right"):
+                direction = event.key
+            elif event.key in hjkl_map:
+                mode = self.config.input.hjkl_navigation.lower().strip()
+                if mode == "always":
+                    direction = hjkl_map[event.key]
+                elif mode == "auto":
+                    ch_up = event.key.upper()
+                    in_hints = bool(self.config.hints.enabled and self.active_hints) and any(
+                        ch_up in code.upper() for code in self.active_hints.values()
+                    )
+                    if not in_hints:
+                        direction = hjkl_map[event.key]
+            if direction is not None:
+                self._move_cursor(direction)
+                event.stop()
+                return
+
         if self.config.input.allow_cursor_navigation and event.key in ("enter", "space"):
             if self.cursor_square is not None:
                 await self._handle_square_selection(self.cursor_square)
@@ -875,23 +899,24 @@ class ChessTuiApp(App[None]):
     def _move_cursor(self, direction: str) -> None:
         if self.cursor_square is None:
             self.cursor_square = chess.E2 if not self.effective_flipped() else chess.E7
-            self.sync_ui()
-            return
-        file_idx = chess.square_file(self.cursor_square)
-        rank_idx = chess.square_rank(self.cursor_square)
-        flipped = self.effective_flipped()
-        df, dr = 0, 0
-        if direction == "left":
-            df = 1 if flipped else -1
-        elif direction == "right":
-            df = -1 if flipped else 1
-        elif direction == "up":
-            dr = -1 if flipped else 1
-        elif direction == "down":
-            dr = 1 if flipped else -1
-        nf = max(0, min(7, file_idx + df))
-        nr = max(0, min(7, rank_idx + dr))
-        self.cursor_square = chess.square(nf, nr)
+        else:
+            file_idx = chess.square_file(self.cursor_square)
+            rank_idx = chess.square_rank(self.cursor_square)
+            flipped = self.effective_flipped()
+            df, dr = 0, 0
+            if direction == "left":
+                df = 1 if flipped else -1
+            elif direction == "right":
+                df = -1 if flipped else 1
+            elif direction == "up":
+                dr = -1 if flipped else 1
+            elif direction == "down":
+                dr = 1 if flipped else -1
+            nf = max(0, min(7, file_idx + df))
+            nr = max(0, min(7, rank_idx + dr))
+            self.cursor_square = chess.square(nf, nr)
+        sq_name = chess.square_name(self.cursor_square).upper()
+        self._set_status(f"Cursor: {sq_name} (hjkl/arrows move • Enter/Space select)")
         self.sync_ui()
 
     async def _trigger_resign(self, force: bool = False) -> None:

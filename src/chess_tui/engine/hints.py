@@ -94,10 +94,23 @@ class HintEngine:
         self._static_cache_key: tuple[str, int, bool, tuple[tuple[str, str], ...]] | None = None
         self._static_map: dict[chess.Square, str] = {}
 
-    def _build_static_map(self, flipped: bool) -> dict[chess.Square, str]:
+    def _effective_alphabet(self, exclude_chars: str = "") -> str:
+        """Return hint alphabet with excluded navigation characters removed if safe."""
+        if not exclude_chars:
+            return self.config.alphabet
+        blocked = set(exclude_chars if self.config.case_sensitive else exclude_chars.upper())
+        filtered = "".join(
+            ch
+            for ch in self.config.alphabet
+            if (ch if self.config.case_sensitive else ch.upper()) not in blocked
+        )
+        return filtered if len(_sanitize_alphabet(filtered)) >= 2 else self.config.alphabet
+
+    def _build_static_map(self, flipped: bool, exclude_chars: str = "") -> dict[chess.Square, str]:
         """Create a persistent 64-square tag map (respecting custom_square_map)."""
+        eff_alpha = self._effective_alphabet(exclude_chars)
         custom_items = tuple(sorted(self.config.custom_square_map.items()))
-        cache_key = (self.config.alphabet, max(2, self.config.min_length), flipped, custom_items)
+        cache_key = (eff_alpha, max(2, self.config.min_length), flipped, custom_items)
         if self._static_cache_key == cache_key and self._static_map:
             return self._static_map
 
@@ -117,7 +130,7 @@ class HintEngine:
         ordered_squares = visual_square_order(flipped=flipped)
         remaining_squares = [sq for sq in ordered_squares if sq not in mapping]
         # Build fixed-length codes of length >= 2 so static 64-square codes never collide
-        chars = _sanitize_alphabet(self.config.alphabet)
+        chars = _sanitize_alphabet(eff_alpha)
         min_len = max(2, self.config.min_length)
         if len(chars) >= 8 and min_len == 2:
             # Visual row-col grid encoding when alphabet has >= 8 chars:
@@ -195,6 +208,7 @@ class HintEngine:
         flipped: bool = False,
         premove_mode: bool = False,
         player_color: chess.Color | None = None,
+        exclude_chars: str = "",
     ) -> dict[chess.Square, str]:
         """Compute active square -> hint tag mapping for current stage."""
         if not self.config.enabled:
@@ -218,14 +232,15 @@ class HintEngine:
             }
 
         if mode == "static":
-            static_map = self._build_static_map(flipped=flipped)
+            static_map = self._build_static_map(flipped=flipped, exclude_chars=exclude_chars)
             return {sq: static_map[sq] for sq in targets if sq in static_map}
 
         # "dynamic" or "smart"
         smart = mode == "smart"
+        eff_alpha = self._effective_alphabet(exclude_chars)
         codes = generate_prefix_free_codes(
             len(targets),
-            self.config.alphabet,
+            eff_alpha,
             min_length=self.config.min_length,
             smart_shortest=smart,
         )

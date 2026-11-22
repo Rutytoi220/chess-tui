@@ -6,14 +6,15 @@ from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.containers import Container, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Label, Static
+
+from chess_tui.tui.screens.base import VimModalScreen
 
 if TYPE_CHECKING:
     from chess_tui.tui.app import ChessTuiApp
 
 
-class HelpScreen(ModalScreen[None]):
+class HelpScreen(VimModalScreen):
     """In-app guide to Vimium chess moves, customization, and Chess.com accounts."""
 
     DEFAULT_CSS = """
@@ -55,6 +56,7 @@ VIMIUM MOVE SYSTEM
      - Esc clears selection/buffer. Backspace edits buffer.
      - On pawn promotion, press Q, R, B, or N.
      - Supports Dynamic, Static (fixed 64-square map), Smart, & Coordinate modes!
+     - Vim Cursor: h/j/k/l (or Arrows) + Enter/Space move on board & inside all menus!
 
 KEYBINDINGS (Customizable in config.toml)
   {kb.get('command_palette', ':'):<12} Open Vim command bar (:theme, :set, :fen, :resign...)

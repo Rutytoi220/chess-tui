@@ -6,16 +6,16 @@ from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal
-from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Label, Static
 
 from chess_tui.chesscom.pubapi import ArchivedGame
+from chess_tui.tui.screens.base import VimModalScreen
 
 if TYPE_CHECKING:
     from chess_tui.tui.app import ChessTuiApp
 
 
-class ArchiveScreen(ModalScreen[None]):
+class ArchiveScreen(VimModalScreen):
     """Look up any Chess.com player's ratings and replay their archived games in the TUI."""
 
     DEFAULT_CSS = """
@@ -96,6 +96,7 @@ class ArchiveScreen(ModalScreen[None]):
     def on_mount(self) -> None:
         table = self.query_one("#games_table", DataTable)
         table.add_columns("#", "Format", "White", "Black", "Result")
+        super().on_mount()
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         tui: ChessTuiApp = self.app  # type: ignore[assignment]

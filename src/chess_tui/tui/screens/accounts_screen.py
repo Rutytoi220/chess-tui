@@ -6,16 +6,16 @@ from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Label, Static
 
 from chess_tui import get_extension_dir
+from chess_tui.tui.screens.base import VimModalScreen
 
 if TYPE_CHECKING:
     from chess_tui.tui.app import ChessTuiApp
 
 
-class AccountsScreen(ModalScreen[None]):
+class AccountsScreen(VimModalScreen):
     """Manage multiple Chess.com accounts with isolated visible browser logins."""
 
     DEFAULT_CSS = """
@@ -103,6 +103,7 @@ class AccountsScreen(ModalScreen[None]):
         table = self.query_one("#accounts_table", DataTable)
         table.add_columns("Alias", "Chess.com User", "CDP Port", "Browser Status", "Active")
         self._reload_table()
+        super().on_mount()
 
     def _reload_table(self) -> None:
         tui: ChessTuiApp = self.app  # type: ignore[assignment]

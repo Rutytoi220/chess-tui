@@ -180,3 +180,33 @@ async def test_accounts_modal_adds_account_profile(tmp_path: Path):
         await pilot.press("escape")
         await pilot.pause()
         assert len(app.screen_stack) == 1
+
+
+async def test_hjkl_cursor_moves_on_board_and_inside_modals(tmp_path: Path):
+    app = _make_app(tmp_path)
+    async with app.run_test(size=(120, 42)) as pilot:
+        await pilot.pause()
+        # First hjkl press places cursor on E2, Enter selects it, k+k moves to E4, Enter plays e4!
+        await pilot.press("h")  # -> initializes at e2
+        await pilot.pause()
+        assert app.cursor_square == chess.E2
+
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.selected_square == chess.E2
+
+        await pilot.press("k", "k", "enter")
+        await pilot.pause()
+        assert app.game_state.move_history_san == ["e4"]
+
+        # Inside PlayScreen modal, j/k/h/l navigate focus between buttons cleanly
+        await pilot.press("ctrl+p")
+        await pilot.pause()
+        assert isinstance(app.screen, PlayScreen)
+        first_focus = app.screen.focused
+        await pilot.press("j")
+        await pilot.pause()
+        assert app.screen.focused is not first_focus
+        await pilot.press("q")
+        await pilot.pause()
+        assert len(app.screen_stack) == 1

@@ -6,16 +6,16 @@ from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static, Switch, TabbedContent, TabPane
 
 from chess_tui.config.themes import THEMES
+from chess_tui.tui.screens.base import VimModalScreen
 
 if TYPE_CHECKING:
     from chess_tui.tui.app import ChessTuiApp
 
 
-class SettingsScreen(ModalScreen[None]):
+class SettingsScreen(VimModalScreen):
     """Full live customization modal for themes, Vimium hints, board rendering, layout, and presets."""
 
     DEFAULT_CSS = """
@@ -228,6 +228,18 @@ class SettingsScreen(ModalScreen[None]):
                                 allow_blank=False,
                             )
                         with Horizontal(classes="setting_row"):
+                            yield Label("Vim hjkl Navigation", classes="setting_label")
+                            yield Select(
+                                [
+                                    ("Always (h/j/k/l move cursor, excluded from hints)", "always"),
+                                    ("Auto (yield when HJKL in hint alphabet)", "auto"),
+                                    ("Off (arrows only)", "off"),
+                                ],
+                                value=cfg.input.hjkl_navigation,
+                                id="input_hjkl",
+                                allow_blank=False,
+                            )
+                        with Horizontal(classes="setting_row"):
                             yield Label("Show Clocks", classes="setting_label")
                             yield Switch(value=cfg.layout.show_clocks, id="layout_clocks")
                         with Horizontal(classes="setting_row"):
@@ -327,6 +339,7 @@ class SettingsScreen(ModalScreen[None]):
         cfg.board.blindfold = self.query_one("#board_blindfold", Switch).value
 
         cfg.layout.sidebar_position = str(self.query_one("#layout_sidebar_pos", Select).value)
+        cfg.input.hjkl_navigation = str(self.query_one("#input_hjkl", Select).value)
         cfg.layout.show_clocks = self.query_one("#layout_clocks", Switch).value
         cfg.layout.show_captured = self.query_one("#layout_captured", Switch).value
         cfg.layout.show_move_list = self.query_one("#layout_moves", Switch).value
@@ -360,7 +373,7 @@ class SettingsScreen(ModalScreen[None]):
         msg_w = self.query_one("#settings_msg", Static)
 
         if bid == "alpha_std":
-            self.query_one("#hints_alphabet", Input).value = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+            self.query_one("#hints_alphabet", Input).value = "ABCDEFGMNOPQRSTUVWXYZ"
             return
         if bid == "alpha_home":
             self.query_one("#hints_alphabet", Input).value = "ASDFGHJKL"

@@ -15,8 +15,8 @@ class HintConfig:
     # "static" (persistent 64-square hint map),
     # "smart" (shortest prefix-free tags like classic Vimium)
     mode: str = "dynamic"
-    # Characters used to construct hint labels (e.g. "ABCDEFGH", "ASDFGHJKL", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    alphabet: str = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    # Characters used to construct hint labels (e.g. "ABCDEFGMNOPQRSTUVWXYZ", "ASDFGHJKL")
+    alphabet: str = "ABCDEFGMNOPQRSTUVWXYZ"
     # Minimum hint length: 2 gives classic "AB" / "BC" style tags
     min_length: int = 2
     case_sensitive: bool = False
@@ -95,8 +95,12 @@ class InputConfig:
 
     # Allow typing SAN ("Nf3", "e4", "O-O") or UCI ("e2e4") via `/` or command bar
     allow_san_command: bool = True
-    # Allow vim-style cursor navigation (arrows or hjkl when hints disabled)
+    # Allow vim-style cursor navigation (arrows + hjkl)
     allow_cursor_navigation: bool = True
+    # "always" = hjkl always move cursor (h/j/k/l excluded from hints),
+    # "auto"   = hjkl move cursor when not used by active hint alphabet,
+    # "off"    = arrow keys only
+    hjkl_navigation: str = "always"
     allow_mouse_clicks: bool = True
     # Confirm before resigning or aborting a live game
     confirm_resign: bool = True
