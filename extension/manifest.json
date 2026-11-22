@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "chess-tui Chess.com Bridge",
+  "version": "0.1.0",
+  "description": "Connects your active Chess.com tab to chess-tui over localhost WebSocket for Vimium-style terminal play.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["https://www.chess.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.chess.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "chess-tui Bridge"
+  }
+}

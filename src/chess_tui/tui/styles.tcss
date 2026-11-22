@@ -1,0 +1,24 @@
+Screen {
+    layout: vertical;
+}
+
+#top_bar {
+    height: 1;
+    dock: top;
+    padding: 0 2;
+}
+
+#main_area {
+    width: 1fr;
+    height: 1fr;
+}
+
+#board_widget {
+    width: 1fr;
+    height: 1fr;
+}
+
+#sidebar_widget {
+    height: 1fr;
+    overflow-y: auto;
+}

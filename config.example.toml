@@ -1,0 +1,117 @@
+# Example configuration for chess-tui (~/.config/chess-tui/config.toml)
+# Everything can also be customized live inside the TUI using Ctrl+S or `:` commands!
+
+theme = "chesscom-green"
+default_account = ""
+
+# Override any color from the active theme (hex RGB)
+[theme_overrides]
+# light_square_bg = "#EBECD0"
+# dark_square_bg = "#739552"
+# hint_bg = "#FFE066"
+# hint_fg = "#1B1915"
+
+[hints]
+enabled = true
+# "dynamic" = only movable pieces get tags, then only legal destination squares get tags
+# "static"  = every square keeps a fixed 2-letter Vimium tag (great for muscle memory)
+# "smart"   = shortest prefix-free Vimium tags (1 char when <= alphabet length)
+mode = "dynamic"
+# Customize your hint alphabet (home row "ASDFGHJKL", full "ABCDEFGHJKLMNPQRSTUVWXYZ", etc.)
+alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+# Minimum tag length (2 gives "AB", "BC" style codes)
+min_length = 2
+case_sensitive = false
+# "top-left", "top-right", "bottom-left", "bottom-right", "center"
+position = "top-left"
+show_premove_hints = true
+dim_non_matching = true
+timeout_seconds = 0.0
+
+[hints.promotion_keys]
+Q = "q"
+R = "r"
+B = "b"
+N = "n"
+
+# Optional custom static square codes (when hints.mode = "static"):
+[hints.custom_square_map]
+# e2 = "AB"
+# e4 = "BC"
+
+[board]
+# "auto", "compact", "medium", "large", "huge"
+square_size = "auto"
+# "unicode-filled", "unicode-dual", "ascii", "ascii-upper", "nerd", "block", "custom"
+piece_style = "unicode-filled"
+# "rounded", "double", "heavy", "ascii", "none"
+border_style = "rounded"
+# "outside", "inside", "none"
+coordinates = "outside"
+# "auto", "white", "black"
+orientation = "auto"
+# "dot", "ring", "tint", "both", "none"
+legal_move_indicator = "dot"
+highlight_last_move = true
+highlight_check = true
+highlight_selected = true
+blindfold = false
+show_square_cursor = true
+
+[layout]
+# "right", "left", "none"
+sidebar_position = "right"
+sidebar_width = 38
+show_clocks = true
+show_players = true
+show_captured = true
+show_material_diff = true
+show_move_list = true
+show_status_log = true
+show_hint_legend = true
+show_header = true
+show_footer = true
+zen_mode = false
+low_time_seconds = 20
+sound_bell = false
+
+[input]
+allow_san_command = true
+allow_cursor_navigation = true
+allow_mouse_clicks = true
+confirm_resign = true
+
+[input.keybindings]
+command_palette = ":"
+san_input = "/"
+cancel = "escape"
+backspace = "backspace"
+flip_board = "ctrl+f"
+toggle_hints = "ctrl+h"
+toggle_zen = "ctrl+z"
+toggle_blindfold = "ctrl+b"
+open_accounts = "ctrl+a"
+open_settings = "ctrl+s"
+open_play = "ctrl+p"
+open_archives = "ctrl+g"
+open_help = "?"
+cycle_theme = "ctrl+t"
+cycle_size = "ctrl+y"
+resign = "ctrl+r"
+offer_draw = "ctrl+d"
+new_game = "ctrl+n"
+quit = "ctrl+q"
+
+[bridge]
+pubapi_user_agent = "chess-tui/0.1.0 (https://github.com/Rutytoi220/chess-tui)"
+browser_binary = "auto"
+browser_extra_args = []
+extension_ws_host = "127.0.0.1"
+extension_ws_port = 8765
+extension_auto_start = true
+cdp_poll_interval_ms = 200
+move_dispatch_method = "click"
+click_delay_ms = 45
+# Local offline UCI engine (disabled during live Chess.com games for Fair Play)
+uci_engine_path = ""
+uci_skill_level = 10
