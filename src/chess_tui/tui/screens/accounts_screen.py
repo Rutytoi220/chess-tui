@@ -91,7 +91,10 @@ class AccountsScreen(VimModalScreen):
                     yield Button("Add Only", id="btn_add_only")
 
                 with Horizontal(classes="row"):
-                    yield Button("Connect / Switch Selected", id="btn_connect", variant="primary")
+                    yield Button("Low-RAM Connect (Headless)", id="btn_connect_headless", variant="primary")
+                    yield Button("Show Visible Browser", id="btn_show_browser")
+                    yield Button("Stop Browser (Free RAM)", id="btn_stop_browser", variant="warning")
+                with Horizontal(classes="row"):
                     yield Button("Open Play Online", id="btn_nav_play")
                     yield Button("Open Computer", id="btn_nav_bot")
                     yield Button("Remove Selected", id="btn_remove", variant="error")
@@ -110,7 +113,10 @@ class AccountsScreen(VimModalScreen):
         table = self.query_one("#accounts_table", DataTable)
         table.clear()
         for acc in tui.account_manager.list_accounts():
-            alive = "RUNNING" if tui.account_manager.is_cdp_alive(acc) else "Stopped"
+            if tui.account_manager.is_cdp_alive(acc):
+                alive = f"RUNNING ({acc.last_mode or 'cdp'})"
+            else:
+                alive = "Stopped (0 MB)"
             is_cur = "● ACTIVE" if tui.active_account_alias == acc.alias else ""
             table.add_row(
                 acc.alias,
@@ -167,8 +173,24 @@ class AccountsScreen(VimModalScreen):
             self._set_feedback("Select an account from the table first.")
             return
 
-        if bid == "btn_connect":
-            _, msg = await tui.connect_account(selected, start_url="https://www.chess.com/play/online")
+        if bid == "btn_connect_headless":
+            _, msg = await tui.connect_account(
+                selected, start_url="https://www.chess.com/play/online", headless=True, force_relaunch=True
+            )
+            self._set_feedback(msg)
+            self._reload_table()
+        elif bid == "btn_show_browser":
+            _, msg = await tui.connect_account(
+                selected, start_url="https://www.chess.com/login", headless=False, force_relaunch=True
+            )
+            self._set_feedback(msg)
+            self._reload_table()
+        elif bid == "btn_stop_browser":
+            if tui.active_account_alias == selected:
+                msg = await tui.disconnect_browser(stop_process=True)
+            else:
+                stopped = tui.account_manager.stop_browser(selected)
+                msg = f"Stopped browser for '{selected}'." if stopped else f"Browser for '{selected}' is not running."
             self._set_feedback(msg)
             self._reload_table()
         elif bid == "btn_nav_play":

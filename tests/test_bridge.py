@@ -38,6 +38,47 @@ def test_account_manager_isolated_profiles(tmp_path: Path):
     assert not Path(acc2.profile_dir).exists()
 
 
+def test_account_manager_has_saved_session_cookie_detection(tmp_path: Path):
+    mgr = AccountManager(data_dir=tmp_path)
+    acc = mgr.add_account("main")
+    assert mgr.has_saved_session(acc) is False
+
+    cookie_dir = Path(acc.profile_dir) / "Default" / "Network"
+    cookie_dir.mkdir(parents=True)
+    (cookie_dir / "Cookies").write_bytes(b"sqlite")
+    assert mgr.has_saved_session(acc) is True
+
+
+def test_launch_browser_builds_low_ram_headless_flags(tmp_path: Path, monkeypatch):
+    captured_cmds: list[list[str]] = []
+
+    class DummyProc:
+        pid = 999999
+
+        def poll(self):
+            return 0
+
+        def terminate(self):
+            pass
+
+    def fake_popen(cmd, **kwargs):
+        captured_cmds.append(cmd)
+        return DummyProc()
+
+    monkeypatch.setattr("chess_tui.chesscom.accounts.find_browser_binary", lambda _: "/usr/bin/chromium")
+    monkeypatch.setattr("chess_tui.chesscom.accounts.subprocess.Popen", fake_popen)
+
+    mgr = AccountManager(data_dir=tmp_path)
+    acc = mgr.add_account("main")
+    ok, _ = mgr.launch_browser(acc, headless=True, disable_images=True)
+    assert ok is True
+    cmd = captured_cmds[0]
+    assert "--headless=new" in cmd
+    assert "--renderer-process-limit=1" in cmd
+    assert "--blink-settings=imagesEnabled=false" in cmd
+    assert acc.last_mode == "headless"
+
+
 def test_dom_script_builders():
     assert "wc-chess-board" in READ_STATE_JS
     coords_js = build_square_coords_js("e2", "e4")

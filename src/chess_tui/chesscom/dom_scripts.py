@@ -10,6 +10,10 @@ READ_STATE_JS = r"""
   const url = window.location.href || "";
   const pathname = window.location.pathname || "";
   const isLoginPage = pathname.includes("/login") || !!document.querySelector("#login, input[name='_username'], #username");
+  const hasChallenge = !!(
+    document.querySelector("#challenge-running, #challenge-form, iframe[src*='challenges.cloudflare.com']") ||
+    (document.title || "").toLowerCase().includes("just a moment")
+  );
 
   // Detect logged-in Chess.com username from header/nav/page globals without touching credentials
   let loggedInUser = "";
@@ -51,6 +55,7 @@ READ_STATE_JS = r"""
     return {
       url,
       isLoginPage,
+      hasChallenge,
       loggedInUser,
       hasBoard: false,
       pieces: {},
@@ -178,6 +183,7 @@ READ_STATE_JS = r"""
   return {
     url,
     isLoginPage,
+    hasChallenge,
     loggedInUser,
     hasBoard: true,
     flipped,

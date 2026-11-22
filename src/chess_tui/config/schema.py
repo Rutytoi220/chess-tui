@@ -138,6 +138,16 @@ class BridgeConfig:
     pubapi_user_agent: str = "chess-tui/0.1.0 (https://github.com/Rutytoi220/chess-tui)"
     # Preferred browser binary for managed accounts ("auto", "chromium", "google-chrome", "brave", or path)
     browser_binary: str = "auto"
+    # "auto" (visible for first login, stripped low-RAM headless once logged in), "headless", or "visible"
+    browser_mode: str = "auto"
+    # Disable image decoding in headless mode to slash RAM usage (board DOM still works 100%)
+    disable_images_in_headless: bool = True
+    # Block heavy third-party ads/analytics/media assets via CDP Network.setBlockedURLs
+    block_heavy_assets: bool = True
+    # Terminate TUI-launched Chromium when exiting chess-tui so zero background RAM stays used
+    auto_close_browser_on_exit: bool = True
+    # Auto-connect default_account on startup (false = 0 MB browser RAM until you press Ctrl+A / --account)
+    auto_connect_on_start: bool = False
     # Extra flags passed when launching managed Chromium
     browser_extra_args: list[str] = field(default_factory=list)
     # Local WebSocket port for the optional Chrome/Firefox extension bridge

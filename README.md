@@ -19,17 +19,18 @@ Supports **4 hint modes**:
 - **`smart`**: Classic Vimium shortest prefix-free tree (1-key moves when targets fit in your alphabet).
 - **`coordinate`**: Type algebraic coordinates (`e2` -> `e4`) directly.
 
-Also supports `/Nf3` or `/e2e4` SAN/UCI quick-entry, arrow-key cursor navigation, and terminal mouse clicks.
+Also supports `h/j/k/l` Vim cursor navigation (`Enter`/`Space` to select/move, works on the board & inside all menus), `/Nf3` or `/e2e4` SAN/UCI quick-entry, arrow keys, and terminal mouse clicks.
 
 ---
 
 ### 2. Login to Any Chess.com Account (Multi-Account Bridge)
 Chess.com's official public REST API (`api.chess.com/pub`) is read-only and does not offer an open self-serve live play API. To let you log in securely to **any** Chess.com account (including passwords, 2FA, Google/Apple SSO, and human verification) and play live games from your terminal:
 
-- **Managed Isolated Browser Profiles (CDP Bridge)**:
+- **Managed Isolated Browser Profiles (CDP Bridge — Low-RAM Headless after Login)**:
   - Run `chess-tui` and press `Ctrl+A` (or `chess-tui account add main --login`).
   - Each account gets its own persistent browser profile directory (`~/.local/share/chess-tui/profiles/<alias>`).
-  - A visible Chromium window opens directly to `chess.com/login` so you log in normally once. Sessions stay saved across restarts, and you can add and switch between as many accounts as you want.
+  - First login opens a visible Chromium window to `chess.com/login` so you sign in normally once (passwords, 2FA, Google/Apple SSO, or human verification).
+  - Once logged in, `browser_mode = "auto"` switches to a **stripped low-RAM headless Chromium** (`--headless=new`, GPU disabled, single renderer process, images disabled, ad/analytics URLs blocked) and **automatically stops Chromium on exit** (`auto_close_browser_on_exit = true`). You can also stop or switch modes anytime via `Ctrl+A` or `:headless` / `:showbrowser` / `:stopbrowser`.
   - Moves typed in the TUI dispatch trusted pointer events onto `<wc-chess-board>`, while clocks, opponent ratings, move list, and game results sync live back to the terminal.
 - **Standalone Browser Extension (`extension/`)**:
   - Prefer your existing Firefox, Chrome, or Brave session? Load the unpacked extension from `extension/` — it connects to `ws://127.0.0.1:8765` inside `chess-tui`.

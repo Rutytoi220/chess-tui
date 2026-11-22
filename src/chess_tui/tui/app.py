@@ -92,7 +92,9 @@ class ChessTuiApp(App[None]):
         )
         self.uci_engine: LocalUciEngine | None = None
 
-        self._initial_account = initial_account or self.config.default_account
+        self._initial_account = initial_account or (
+            self.config.default_account if self.config.bridge.auto_connect_on_start else ""
+        )
         self._initial_puzzle = initial_puzzle
         self._initial_puzzle_random = initial_puzzle_random
         self._last_turn_seen: chess.Color = self.game_state.board.turn
@@ -142,6 +144,8 @@ class ChessTuiApp(App[None]):
     async def on_unmount(self) -> None:
         if self.cdp_bridge is not None:
             await self.cdp_bridge.disconnect()
+        if self.config.bridge.auto_close_browser_on_exit:
+            self.account_manager.stop_all_browsers()
         await self.ws_bridge.stop()
         if self.uci_engine is not None:
             await self.uci_engine.stop()
@@ -299,17 +303,33 @@ class ChessTuiApp(App[None]):
         *,
         start_url: str = "https://www.chess.com/play/online",
         force_nav: bool = False,
+        headless: bool | None = None,
+        force_relaunch: bool = False,
     ) -> tuple[bool, str]:
-        """Connect to or launch an isolated visible browser profile for `alias`."""
+        """Connect to or launch an isolated browser profile (low-RAM headless once logged in)."""
         acc = self.account_manager.get(alias)
         if acc is None:
             acc = self.account_manager.add_account(alias)
+
+        if headless is None:
+            mode = self.config.bridge.browser_mode.lower().strip()
+            if mode == "headless":
+                use_headless = True
+            elif mode == "visible":
+                use_headless = False
+            else:
+                use_headless = self.account_manager.has_saved_session(acc) and "/login" not in start_url
+        else:
+            use_headless = headless
 
         ok, launch_msg = self.account_manager.launch_browser(
             acc,
             browser_binary=self.config.bridge.browser_binary,
             extra_args=self.config.bridge.browser_extra_args,
             start_url=start_url,
+            headless=use_headless,
+            disable_images=self.config.bridge.disable_images_in_headless,
+            force_relaunch=force_relaunch,
         )
         if not ok:
             return False, launch_msg
@@ -322,6 +342,7 @@ class ChessTuiApp(App[None]):
             poll_interval_ms=self.config.bridge.cdp_poll_interval_ms,
             move_method=self.config.bridge.move_dispatch_method,
             click_delay_ms=self.config.bridge.click_delay_ms,
+            block_heavy_assets=self.config.bridge.block_heavy_assets,
         )
         # Retry briefly while freshly launched Chromium opens its CDP port
         last_err: Exception | None = None
@@ -335,14 +356,33 @@ class ChessTuiApp(App[None]):
                 self.config_manager.save()
                 if force_nav and start_url not in page_url:
                     await bridge.navigate(start_url)
-                self._log(f"Connected CDP '{acc.alias}' ({page_url})")
+                mode_tag = "headless" if use_headless else "visible"
+                self._log(f"Connected CDP '{acc.alias}' ({mode_tag})")
                 self.sync_ui()
-                return True, f"Connected '{acc.alias}' on CDP port {acc.cdp_port}"
+                return True, f"Connected '{acc.alias}' ({mode_tag}) on CDP port {acc.cdp_port}"
             except Exception as exc:
                 last_err = exc
                 await asyncio.sleep(0.35)
 
         return False, f"Launched browser, but CDP connection timed out ({last_err})"
+
+    async def disconnect_browser(self, *, stop_process: bool = True) -> str:
+        """Disconnect CDP and optionally terminate the background Chromium process to free RAM."""
+        alias = self.active_account_alias
+        if self.cdp_bridge is not None:
+            await self.cdp_bridge.disconnect()
+            self.cdp_bridge = None
+        if stop_process and alias:
+            self.account_manager.stop_browser(alias)
+        self.active_account_alias = ""
+        self.active_username = ""
+        if self.game_state.mode == GameMode.CHESSCOM_LIVE:
+            self.game_state.reset_local(GameMode.LOCAL_2P)
+        self._clear_selection()
+        msg = "Stopped browser & freed RAM." if stop_process else "Disconnected from browser."
+        self._set_status(msg)
+        self._log(msg)
+        return msg
 
     async def navigate_chesscom(self, url: str) -> bool:
         if self.cdp_bridge and self.cdp_bridge.connected:
@@ -383,8 +423,17 @@ class ChessTuiApp(App[None]):
         elif self.active_username.lower() == "profile":
             self.active_username = ""
 
+        if snapshot.get("hasChallenge") and not snapshot.get("hasBoard"):
+            self._set_status(
+                "Chess.com verification requested — press ^A → 'Show Visible Browser' (or :showbrowser)"
+            )
+            self.sync_ui()
+            return
+
         if snapshot.get("isLoginPage") and not snapshot.get("hasBoard"):
-            self._set_status("Complete Chess.com login in the visible browser window...")
+            self._set_status(
+                "Sign in required — complete login in visible browser (^A → 'Show Visible Browser')"
+            )
             self.sync_ui()
             return
 
@@ -1078,6 +1127,18 @@ class ChessTuiApp(App[None]):
                 self.push_screen(PlayScreen())
         elif cmd == "login":
             self.push_screen(AccountsScreen())
+        elif cmd == "headless":
+            target = args[0] if args else (self.active_account_alias or self.config.default_account or "main")
+            _, msg = await self.connect_account(target, headless=True, force_relaunch=True)
+            self._set_status(msg)
+        elif cmd == "showbrowser":
+            target = args[0] if args else (self.active_account_alias or self.config.default_account or "main")
+            _, msg = await self.connect_account(
+                target, start_url="https://www.chess.com/login", headless=False, force_relaunch=True
+            )
+            self._set_status(msg)
+        elif cmd in ("disconnect", "stopbrowser"):
+            await self.disconnect_browser(stop_process=True)
         elif cmd == "archive":
             self.push_screen(ArchiveScreen(initial_username=args[0] if args else ""))
         elif cmd == "puzzle":

@@ -107,6 +107,12 @@ quit = "ctrl+q"
 [bridge]
 pubapi_user_agent = "chess-tui/0.1.0 (https://github.com/Rutytoi220/chess-tui)"
 browser_binary = "auto"
+# "auto" = visible window only for login, stripped low-RAM headless once signed in! ("headless" | "visible")
+browser_mode = "auto"
+disable_images_in_headless = true
+block_heavy_assets = true
+auto_close_browser_on_exit = true
+auto_connect_on_start = false
 browser_extra_args = []
 extension_ws_host = "127.0.0.1"
 extension_ws_port = 8765

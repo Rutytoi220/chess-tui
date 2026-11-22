@@ -34,12 +34,14 @@ class CdpBridge:
         poll_interval_ms: int = 200,
         move_method: str = "click",
         click_delay_ms: int = 45,
+        block_heavy_assets: bool = True,
     ) -> None:
         self.host = host
         self.port = port
         self.poll_interval_ms = max(80, poll_interval_ms)
         self.move_method = move_method
         self.click_delay_ms = max(15, click_delay_ms)
+        self.block_heavy_assets = block_heavy_assets
 
         self._ws: Any = None
         self._id_gen = itertools.count(1)
@@ -82,6 +84,26 @@ class CdpBridge:
         self._recv_task = asyncio.create_task(self._recv_loop())
         await self._call("Page.enable")
         await self._call("Runtime.enable")
+        if self.block_heavy_assets:
+            try:
+                await self._call("Network.enable")
+                await self._call(
+                    "Network.setBlockedURLs",
+                    {
+                        "urls": [
+                            "*doubleclick.net*",
+                            "*googlesyndication.com*",
+                            "*googletagmanager.com*",
+                            "*google-analytics.com*",
+                            "*facebook.net*",
+                            "*adnxs.com*",
+                            "*.mp4",
+                            "*.webm",
+                        ]
+                    },
+                )
+            except Exception:
+                pass
         self._poll_task = asyncio.create_task(self._poll_loop())
         return page_url
 

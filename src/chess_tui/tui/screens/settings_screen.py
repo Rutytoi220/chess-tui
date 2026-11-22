@@ -255,6 +255,24 @@ class SettingsScreen(VimModalScreen):
                             yield Label("Terminal Sound Bell", classes="setting_label")
                             yield Switch(value=cfg.layout.sound_bell, id="layout_bell")
                         with Horizontal(classes="setting_row"):
+                            yield Label("Chess.com Browser Mode", classes="setting_label")
+                            yield Select(
+                                [
+                                    ("Auto (visible login -> low-RAM headless)", "auto"),
+                                    ("Headless (always low-RAM background)", "headless"),
+                                    ("Visible (always show browser window)", "visible"),
+                                ],
+                                value=cfg.bridge.browser_mode,
+                                id="bridge_browser_mode",
+                                allow_blank=False,
+                            )
+                        with Horizontal(classes="setting_row"):
+                            yield Label("Disable Images in Headless", classes="setting_label")
+                            yield Switch(value=cfg.bridge.disable_images_in_headless, id="bridge_no_images")
+                        with Horizontal(classes="setting_row"):
+                            yield Label("Auto-Stop Browser on Exit", classes="setting_label")
+                            yield Switch(value=cfg.bridge.auto_close_browser_on_exit, id="bridge_auto_close")
+                        with Horizontal(classes="setting_row"):
                             yield Label("Chess.com Move Method", classes="setting_label")
                             yield Select(
                                 [("Click-to-move", "click"), ("Drag-and-drop", "drag")],
@@ -345,6 +363,9 @@ class SettingsScreen(VimModalScreen):
         cfg.layout.show_move_list = self.query_one("#layout_moves", Switch).value
         cfg.layout.zen_mode = self.query_one("#layout_zen", Switch).value
         cfg.layout.sound_bell = self.query_one("#layout_bell", Switch).value
+        cfg.bridge.browser_mode = str(self.query_one("#bridge_browser_mode", Select).value)
+        cfg.bridge.disable_images_in_headless = self.query_one("#bridge_no_images", Switch).value
+        cfg.bridge.auto_close_browser_on_exit = self.query_one("#bridge_auto_close", Switch).value
         cfg.bridge.move_dispatch_method = str(self.query_one("#bridge_move_method", Select).value)
         cfg.bridge.uci_engine_path = self.query_one("#bridge_uci_path", Input).value.strip()
 

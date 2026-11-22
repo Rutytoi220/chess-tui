@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import datetime, UTC
+from dataclasses import asdict, dataclass, fields
+from datetime import UTC, datetime
 import json
+import os
 from pathlib import Path
 import shutil
+import signal
 import socket
 import subprocess
+import time
 from typing import Any
 
 from chess_tui.config.manager import default_data_dir
@@ -36,6 +39,8 @@ class ChessComAccount:
     profile_dir: str = ""
     cdp_port: int = 9222
     last_login_at: str = ""
+    last_pid: int = 0
+    last_mode: str = ""
     notes: str = ""
 
 
@@ -81,10 +86,12 @@ class AccountManager:
 
     def load(self) -> dict[str, ChessComAccount]:
         self._accounts = {}
+        valid_keys = {f.name for f in fields(ChessComAccount)}
         if self.accounts_file.exists():
             raw = json.loads(self.accounts_file.read_text(encoding="utf-8"))
             for item in raw.get("accounts", []):
-                acc = ChessComAccount(**item)
+                filtered = {k: v for k, v in item.items() if k in valid_keys}
+                acc = ChessComAccount(**filtered)
                 self._accounts[acc.alias] = acc
         return self._accounts
 
@@ -171,6 +178,58 @@ class AccountManager:
     def is_cdp_alive(self, account: ChessComAccount) -> bool:
         return _is_port_in_use(account.cdp_port)
 
+    def has_saved_session(self, account: ChessComAccount) -> bool:
+        """Return True if this account has previously logged in / stored browser cookies."""
+        if account.last_login_at:
+            return True
+        if not account.profile_dir:
+            return False
+        prof = Path(account.profile_dir)
+        return (prof / "Default" / "Cookies").exists() or (prof / "Default" / "Network" / "Cookies").exists()
+
+    def stop_browser(self, alias: str) -> bool:
+        """Terminate any Chromium process launched by chess-tui for `alias`."""
+        clean_alias = alias.strip().lower()
+        acc = self.get(clean_alias)
+        stopped = False
+
+        proc = self._processes.pop(clean_alias, None)
+        if proc and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            stopped = True
+
+        if acc and acc.last_pid > 0:
+            try:
+                os.kill(acc.last_pid, signal.SIGTERM)
+                stopped = True
+            except ProcessLookupError:
+                pass
+            except PermissionError:
+                pass
+            acc.last_pid = 0
+            acc.last_mode = ""
+            self.save()
+
+        # Brief wait for CDP port release if terminated
+        if acc and stopped:
+            for _ in range(10):
+                if not self.is_cdp_alive(acc):
+                    break
+                time.sleep(0.1)
+        return stopped
+
+    def stop_all_browsers(self) -> int:
+        """Terminate all Chromium instances launched by chess-tui."""
+        count = 0
+        for alias in list(self._accounts.keys()):
+            if self.stop_browser(alias):
+                count += 1
+        return count
+
     def launch_browser(
         self,
         account: ChessComAccount,
@@ -178,14 +237,16 @@ class AccountManager:
         browser_binary: str = "auto",
         extra_args: list[str] | None = None,
         start_url: str = "https://www.chess.com/login",
+        headless: bool = False,
+        disable_images: bool = True,
+        force_relaunch: bool = False,
     ) -> tuple[bool, str]:
-        """Launch a visible isolated browser window for this account if not already running.
-
-        The user signs in manually in the visible window (supporting passwords, 2FA, SSO,
-        and any human verification challenge). Session cookies persist in `account.profile_dir`.
-        """
+        """Launch an isolated Chromium profile for this account (visible or low-RAM headless)."""
         if self.is_cdp_alive(account):
-            return True, f"Attached to running browser session on port {account.cdp_port}"
+            desired = "headless" if headless else "visible"
+            if not force_relaunch or account.last_mode == desired:
+                return True, f"Attached to running {account.last_mode or 'browser'} session on port {account.cdp_port}"
+            self.stop_browser(account.alias)
 
         binary = find_browser_binary(browser_binary)
         if not binary:
@@ -199,7 +260,6 @@ class AccountManager:
         profile_path.mkdir(parents=True, exist_ok=True)
         if not account.profile_dir:
             account.profile_dir = str(profile_path)
-            self.save()
 
         cmd: list[str] = [
             binary,
@@ -207,7 +267,25 @@ class AccountManager:
             f"--remote-debugging-port={account.cdp_port}",
             "--no-first-run",
             "--no-default-browser-check",
+            "--disable-extensions",
+            "--disable-sync",
+            "--disable-background-networking",
+            "--disable-default-apps",
+            "--disable-component-update",
+            "--mute-audio",
+            "--disable-features=Translate,BackForwardCache,MediaRouter,OptimizationHints",
         ]
+        if headless:
+            cmd.extend([
+                "--headless=new",
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--renderer-process-limit=1",
+                "--window-size=1280,900",
+            ])
+            if disable_images:
+                cmd.append("--blink-settings=imagesEnabled=false")
+
         if extra_args:
             cmd.extend(extra_args)
         cmd.append(start_url)
@@ -219,7 +297,11 @@ class AccountManager:
             start_new_session=True,
         )
         self._processes[account.alias] = proc
-        return True, f"Launched {Path(binary).name} for '{account.alias}' on CDP port {account.cdp_port}"
+        account.last_pid = proc.pid
+        account.last_mode = "headless" if headless else "visible"
+        self.save()
+        mode_lbl = "low-RAM headless" if headless else "visible"
+        return True, f"Launched {Path(binary).name} ({mode_lbl}) for '{account.alias}' on port {account.cdp_port}"
 
     def to_summary(self, account: ChessComAccount) -> dict[str, Any]:
         return {
