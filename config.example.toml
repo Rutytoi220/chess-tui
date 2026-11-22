@@ -103,7 +103,7 @@ cycle_pieces = "ctrl+o"
 resign = "ctrl+r"
 offer_draw = "ctrl+d"
 new_game = "ctrl+n"
-quit = "ctrl+q"
+quit = "ctrl+c"
 
 [bridge]
 pubapi_user_agent = "chess-tui/0.1.0 (https://github.com/Rutytoi220/chess-tui)"

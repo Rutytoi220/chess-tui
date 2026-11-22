@@ -74,7 +74,7 @@ KEYBINDINGS (Customizable in config.toml)
   {kb.get('cycle_pieces', 'ctrl+o'):<12} Cycle Piece Art Styles (auto/block/unicode-dual/ascii)
   {kb.get('resign', 'ctrl+r'):<12} Resign Game
   {kb.get('offer_draw', 'ctrl+d'):<12} Offer / Accept Draw
-  {kb.get('quit', 'ctrl+q'):<12} Quit
+  Ctrl+C / ^Q  Quit
 
 VIM COMMANDS (`:`)
   :theme <name>             Switch theme (e.g. :theme catppuccin-mocha)

@@ -52,6 +52,14 @@ class ChessTuiApp(App[None]):
     CSS_PATH = "styles.tcss"
     TITLE = "chess-tui"
     ENABLE_COMMAND_PALETTE = False
+    BINDINGS = [
+        ("ctrl+c", "quit", "Quit"),
+        ("ctrl+q", "quit", "Quit"),
+    ]
+
+    def action_help_quit(self) -> None:
+        """Override Textual's default Ctrl+C warning and quit immediately."""
+        self.exit()
 
     def __init__(
         self,
@@ -854,6 +862,11 @@ class ChessTuiApp(App[None]):
         return bool(event.character and event.character == bound)
 
     async def on_key(self, event: events.Key) -> None:
+        if event.key == "ctrl+c" or self._matches_binding(event, "quit"):
+            self.exit()
+            event.prevent_default()
+            event.stop()
+            return
         # Don't intercept keys when a modal screen or command input box is active
         if len(self.screen_stack) > 1:
             return
@@ -865,10 +878,6 @@ class ChessTuiApp(App[None]):
             return
 
         # Check configured global action keybindings first
-        if self._matches_binding(event, "quit"):
-            self.exit()
-            event.stop()
-            return
         if self._matches_binding(event, "cancel"):
             if (
                 self.selected_square is None

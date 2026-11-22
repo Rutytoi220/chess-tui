@@ -300,3 +300,22 @@ async def test_live_premove_queue_executes_on_turn_change_and_esc_cancels(tmp_pa
         )
         assert app.game_state.premove is None
         assert sent_moves == [("g1", "f3", None)]
+
+
+async def test_ctrl_c_quits_app_from_main_and_modal(tmp_path: Path):
+    app = _make_app(tmp_path)
+    async with app.run_test(size=(120, 42)) as pilot:
+        await pilot.pause()
+        await pilot.press("ctrl+c")
+        await pilot.pause()
+        assert app.is_running is False
+
+    app2 = _make_app(tmp_path)
+    async with app2.run_test(size=(120, 42)) as pilot:
+        await pilot.pause()
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert isinstance(app2.screen, SettingsScreen)
+        await pilot.press("ctrl+c")
+        await pilot.pause()
+        assert app2.is_running is False

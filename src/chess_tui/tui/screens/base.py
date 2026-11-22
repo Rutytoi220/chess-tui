@@ -29,6 +29,12 @@ class VimModalScreen(ModalScreen[None]):
         return False
 
     def on_key(self, event: events.Key) -> None:
+        if event.key in ("ctrl+c", "ctrl+q"):
+            self.app.exit()
+            event.prevent_default()
+            event.stop()
+            return
+
         focused = self.focused
         # Never hijack typing inside text inputs
         if isinstance(focused, Input):

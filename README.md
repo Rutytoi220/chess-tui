@@ -103,7 +103,7 @@ uv run chess-tui
 | `Ctrl+Z` | Toggle Zen Mode |
 | `Ctrl+B` | Toggle Blindfold Mode |
 | `?` | Help & Command Reference |
-| `Ctrl+Q` | Quit |
+| `Ctrl+C` / `Ctrl+Q` | Quit |
 
 ---
 

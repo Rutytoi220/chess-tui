@@ -127,7 +127,7 @@ class InputConfig:
             "resign": "ctrl+r",
             "offer_draw": "ctrl+d",
             "new_game": "ctrl+n",
-            "quit": "ctrl+q",
+            "quit": "ctrl+c",
         }
     )
 
