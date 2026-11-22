@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Label, Static
+
+from chess_tui import get_extension_dir
 
 if TYPE_CHECKING:
     from chess_tui.tui.app import ChessTuiApp
@@ -68,7 +69,7 @@ class AccountsScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         tui: ChessTuiApp = self.app  # type: ignore[assignment]
-        ext_path = Path(__file__).resolve().parents[4] / "extension"
+        ext_path = get_extension_dir()
         ws_port = tui.config.bridge.extension_ws_port
         ws_clients = tui.ws_bridge.client_count
 

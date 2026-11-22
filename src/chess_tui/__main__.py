@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
 
-from chess_tui import __version__
+from chess_tui import __version__, get_extension_dir
 from chess_tui.chesscom.accounts import AccountManager, find_browser_binary
 from chess_tui.config.manager import ConfigManager, default_data_dir
 from chess_tui.config.themes import THEMES
@@ -61,7 +60,7 @@ def _run_doctor(cfg_mgr: ConfigManager, acc_mgr: AccountManager) -> int:
     cfg = cfg_mgr.config
     browser = find_browser_binary(cfg.bridge.browser_binary)
     uci = find_uci_engine(cfg.bridge.uci_engine_path)
-    ext_dir = Path(__file__).resolve().parents[2] / "extension"
+    ext_dir = get_extension_dir()
 
     print(f"chess-tui v{__version__}")
     print(f"  Config file   : {cfg_mgr.config_path} ({'exists' if cfg_mgr.config_path.exists() else 'defaults'})")

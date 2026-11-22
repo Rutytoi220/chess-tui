@@ -48,6 +48,9 @@ chesscom-tui = "chess_tui.__main__:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/chess_tui"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"extension" = "chess_tui/extension"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
