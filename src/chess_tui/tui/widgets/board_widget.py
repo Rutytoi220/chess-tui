@@ -20,6 +20,12 @@ from chess_tui.config.themes import (
     BRAILLE_SPRITES_7X3,
     LINE_SPRITES_7X3,
     PIECE_GLYPHS,
+    SEXTANT_SPRITES_5X3,
+    SEXTANT_SPRITES_7X3,
+    SEXTANT_SPRITES_7X4,
+    SOLID_SPRITES_5X3,
+    SOLID_SPRITES_7X3,
+    SOLID_SPRITES_7X4,
     ThemePalette,
 )
 from chess_tui.engine.game_state import GameState
@@ -49,6 +55,45 @@ SIZE_PRESETS: dict[str, SquareDims] = {
     "huge": SquareDims(11, 5, "huge"),
     "giant": SquareDims(13, 6, "giant"),
 }
+
+
+def _select_sprite(style_pref: str, sym_up: str, w: int, h: int) -> tuple[str, ...]:
+    """Choose the multi-line piece sprite matching the active piece style and square dimensions."""
+    if style_pref in ("auto", "sextant"):
+        if w >= 8 and h >= 4:
+            return SEXTANT_SPRITES_7X4[sym_up]
+        return SEXTANT_SPRITES_7X3[sym_up] if w >= 8 else SEXTANT_SPRITES_5X3[sym_up]
+    if style_pref == "solid":
+        if w >= 8 and h >= 4:
+            return SOLID_SPRITES_7X4[sym_up]
+        return SOLID_SPRITES_7X3[sym_up] if w >= 8 else SOLID_SPRITES_5X3[sym_up]
+    if style_pref == "braille":
+        return BRAILLE_SPRITES_7X3[sym_up] if w >= 8 else BRAILLE_SPRITES_5X3[sym_up]
+    if style_pref == "line-art":
+        return LINE_SPRITES_7X3[sym_up]
+    if w >= 11 and h >= 5:
+        return BLOCK_SPRITES_9X4[sym_up]
+    if w >= 8 and h >= 4:
+        return BLOCK_SPRITES_7X3[sym_up]
+    return BLOCK_SPRITES_5X3[sym_up]
+
+
+def _merge_cells(cells: list[tuple[str, Style]]) -> list[tuple[str, Style]]:
+    """Coalesce adjacent character cells sharing identical Rich styles into minimal segments."""
+    if not cells:
+        return []
+    merged: list[tuple[str, Style]] = []
+    cur_chars = [cells[0][0]]
+    cur_style = cells[0][1]
+    for ch, st in cells[1:]:
+        if st == cur_style:
+            cur_chars.append(ch)
+        else:
+            merged.append(("".join(cur_chars), cur_style))
+            cur_chars = [ch]
+            cur_style = st
+    merged.append(("".join(cur_chars), cur_style))
+    return merged
 
 
 class BoardWidget(Widget):
@@ -269,7 +314,7 @@ class BoardWidget(Widget):
         # Multi-row square rendering (`medium`, `large`, `huge`, `giant`, `auto`)
         style_pref = self.board_config.piece_style.lower().strip()
         use_multiline = (
-            style_pref in ("auto", "braille", "line-art", "block")
+            style_pref in ("auto", "sextant", "solid", "braille", "line-art", "block")
             and piece is not None
             and w >= 7
             and h >= 3
@@ -279,36 +324,53 @@ class BoardWidget(Widget):
         if hint_pos == "center" and piece is None:
             hint_row = h // 2
 
-        # Multi-line Staunton Braille / Line-Art / Block pieces
+        # Multi-line Staunton Sextant / Solid / Braille / Line-Art / Block pieces
         if use_multiline and piece is not None:
-            sym_up = piece.symbol().upper()
-            if style_pref in ("auto", "braille"):
-                sprite_rows: tuple[str, ...] = (
-                    BRAILLE_SPRITES_7X3[sym_up] if w >= 8 else BRAILLE_SPRITES_5X3[sym_up]
-                )
-            elif style_pref == "line-art":
-                sprite_rows = LINE_SPRITES_7X3[sym_up]
-            elif w >= 11 and h >= 5:
-                sprite_rows = BLOCK_SPRITES_9X4[sym_up]
-            elif w >= 8 and h >= 4:
-                sprite_rows = BLOCK_SPRITES_7X3[sym_up]
-            else:
-                sprite_rows = BLOCK_SPRITES_5X3[sym_up]
+            sprite_rows = _select_sprite(style_pref, piece.symbol().upper(), w, h)
             sprite_h = len(sprite_rows)
-            sprite_start_row = 0 if h == 3 else 1
+            sprite_start_row = 0 if h == sprite_h else 1
             if sprite_start_row <= row_idx < sprite_start_row + sprite_h:
                 line = sprite_rows[row_idx - sprite_start_row]
                 p_fg = t.white_piece_fg if piece.color == chess.WHITE else t.black_piece_fg
                 p_style = Style(color=p_fg, bgcolor=sq_bg, bold=True)
+                left_pad = max(0, (w - len(line)) // 2)
+                right_pad = max(0, w - len(line) - left_pad)
                 if row_idx == hint_row and hint_segs:
-                    # On h==3, place hint badge top-left and sprite cleanly to its right
-                    if w - hint_len >= len(line):
+                    if h == 3 and hint_pos.endswith("left") and w - hint_len >= len(line):
                         rem = w - hint_len - len(line)
+                        if is_legal_target and rem >= 1:
+                            return [
+                                *hint_segs,
+                                (line, p_style),
+                                (" " * (rem - 1), base_style),
+                                ("◎", Style(color=t.capture_ring_fg, bgcolor=sq_bg, bold=True)),
+                            ]
                         return [*hint_segs, (line, p_style), (" " * rem, base_style)]
-                elif row_idx != hint_row or (h == 3 and not hint_segs):
-                    left_pad = (w - len(line)) // 2
-                    right_pad = w - len(line) - left_pad
-                    return [(" " * left_pad, base_style), (line, p_style), (" " * right_pad, base_style)]
+                    cells: list[tuple[str, Style]] = (
+                        [(" ", base_style)] * left_pad
+                        + [(ch, p_style) for ch in line[:w]]
+                        + [(" ", base_style)] * right_pad
+                    )
+                    hint_col = (
+                        max(0, w - hint_len)
+                        if hint_pos.endswith("right")
+                        else (max(0, (w - hint_len) // 2) if hint_pos == "center" else 0)
+                    )
+                    col = hint_col
+                    for txt, seg_style in hint_segs:
+                        for ch in txt:
+                            if col < w:
+                                cells[col] = (ch, seg_style)
+                                col += 1
+                    if is_legal_target:
+                        ring_col = 0 if hint_pos.endswith("right") else (w - 1)
+                        if not (hint_col <= ring_col < hint_col + hint_len):
+                            cells[ring_col] = (
+                                "◎",
+                                Style(color=t.capture_ring_fg, bgcolor=sq_bg, bold=True),
+                            )
+                    return _merge_cells(cells)
+                return [(" " * left_pad, base_style), (line, p_style), (" " * right_pad, base_style)]
 
         # Hint row (typically row 0)
         if row_idx == hint_row and hint_segs:

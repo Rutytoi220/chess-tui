@@ -71,14 +71,14 @@ KEYBINDINGS (Customizable in config.toml)
   {kb.get('toggle_blindfold', 'ctrl+b'):<12} Toggle Blindfold Mode
   {kb.get('cycle_theme', 'ctrl+t'):<12} Cycle Built-in Color Themes
   {kb.get('cycle_size', 'ctrl+y'):<12} Cycle Board Square Sizes (auto/compact/medium/large/huge/giant)
-  {kb.get('cycle_pieces', 'ctrl+o'):<12} Cycle Piece Art Styles (auto/braille/line-art/block/unicode-dual/ascii)
+  {kb.get('cycle_pieces', 'ctrl+o'):<12} Cycle Piece Art Styles (auto/sextant/solid/braille/line-art/block/unicode)
   {kb.get('resign', 'ctrl+r'):<12} Resign Game
   {kb.get('offer_draw', 'ctrl+d'):<12} Offer / Accept Draw
   Ctrl+C / ^Q  Quit
 
 VIM COMMANDS (`:`)
   :theme <name>             Switch theme (e.g. :theme catppuccin-mocha)
-  :pieces <style>           unicode-filled | unicode-dual | block | ascii | nerd
+  :pieces <style>           sextant | solid | braille | line-art | block | unicode-dual | ascii
   :size <size>              auto | compact | medium | large | huge
   :hints <mode>             dynamic | static | smart | coordinate | off | on
   :alphabet <chars>         Change hint characters (e.g. :alphabet ASDFGHJKL)

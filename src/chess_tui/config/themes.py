@@ -607,6 +607,65 @@ BLOCK_SPRITES_9X4: dict[str, tuple[str, str, str, str]] = {
     "P": ("    ▄    ", "   ███   ", "   ███   ", "  █████  "),
 }
 
+# Crisp 100% solid-filled Staunton Sextant sprites (14x12 in 7x4 cells on h>=4,
+# with row 0 keeping cols 0..1 and col 6 blank so hint badges never collide)
+SEXTANT_SPRITES_7X4: dict[str, tuple[str, str, str, str]] = {
+    "K": ("  🬋█🬋  ", "🬦██🬹██🬓", " 🬊███🬆 ", "🬞🬻███🬺🬏"),
+    "Q": ("  🬢█🬖  ", "🬫🬵███🬱🬛", " 🬊███🬆 ", "🬞🬻███🬺🬏"),
+    "R": ("       ", " █🬭█🬭█ ", " ▐███▌ ", "🬞🬻███🬺🬏"),
+    "B": ("  🬇█🬃  ", " 🬻█🬝🬡🬺 ", " 🬠███🬐 ", "🬞🬻███🬺🬏"),
+    "N": ("  🬻█🬹🬏 ", "🬍🬎🬂███ ", " 🬞🬻███ ", "🬞🬻████🬏"),
+    "P": ("       ", "  🬵🬹🬱  ", "  🬻█🬺  ", " 🬻███🬺 "),
+}
+
+# Solid-filled Staunton Sextant sprites (14x9 in 7x3 cells for h==3)
+SEXTANT_SPRITES_7X3: dict[str, tuple[str, str, str]] = {
+    "K": (" 🬭🬹█🬹🬭 ", "🬁🬎███🬎🬀", "🬞🬻███🬺🬏"),
+    "Q": ("🬫🬵███🬱🬛", " 🬊███🬆 ", "🬞🬻███🬺🬏"),
+    "R": (" █🬭█🬭█ ", " ▐███▌ ", "🬞🬻███🬺🬏"),
+    "B": (" 🬞🬹█🬋🬭 ", " 🬁█🬺🬻🬂 ", "🬞🬻███🬺🬏"),
+    "N": ("🬞🬹██🬹🬭 ", "🬂🬂🬭██🬝 ", "🬞🬻███🬺🬏"),
+    "P": ("  🬵🬹🬱  ", "  🬻█🬺  ", " 🬻███🬺 "),
+}
+
+# Solid-filled Staunton Sextant sprites (10x9 in 5x3 cells for w==7)
+SEXTANT_SPRITES_5X3: dict[str, tuple[str, str, str]] = {
+    "K": ("🬞🬹█🬹🬏", "🬊🬬█🬝🬆", "🬵███🬱"),
+    "Q": ("🬪🬷█🬲🬜", " 🬨█🬕 ", "🬵███🬱"),
+    "R": ("▐🬲█🬷▌", " ███ ", "🬵███🬱"),
+    "B": ("🬞🬹🬝🬩🬏", "🬁🬬🬹🬝🬀", "🬵███🬱"),
+    "N": ("🬵🬻█🬱🬏", "🬂🬟🬷█🬄", "🬵███🬱"),
+    "P": (" 🬵🬹🬱 ", " 🬻█🬺 ", "🬷███🬲"),
+}
+
+# Universal Unicode 1.1 Quadrant solid sprites (U+2580..U+259F fallback for any terminal)
+SOLID_SPRITES_7X4: dict[str, tuple[str, str, str, str]] = {
+    "K": ("  ▄█▄  ", "▗▛▀█▀▜▖", " ▝███▘ ", "▗▟███▙▖"),
+    "Q": ("  ▖█▗  ", "▝▄███▄▘", " ▝███▘ ", "▗▟███▙▖"),
+    "R": ("       ", " ▟▄█▄▙ ", "  ███  ", "▗▟███▙▖"),
+    "B": ("  ▗█▖  ", " ▟▚██▙ ", "  ▜█▛  ", " ▟███▙ "),
+    "N": ("  ▟█▙  ", "▟█▀███ ", " ▗▟███ ", "▗▟███▙▖"),
+    "P": ("       ", "  ▗▄▖  ", "  ▜█▛  ", " ▗███▖ "),
+}
+
+SOLID_SPRITES_7X3: dict[str, tuple[str, str, str]] = {
+    "K": (" ▟▄█▄▙ ", " ▝███▘ ", "▗▟███▙▖"),
+    "Q": ("▝▄███▄▘", " ▝███▘ ", "▗▟███▙▖"),
+    "R": (" ▟▄█▄▙ ", "  ███  ", "▗▟███▙▖"),
+    "B": ("  ▗█▖  ", " ▟▚██▙ ", " ▟███▙ "),
+    "N": ("  ▟█▙  ", "▟█▀███ ", " ▟███▙ "),
+    "P": ("  ▗▄▖  ", "  ▜█▛  ", " ▗███▖ "),
+}
+
+SOLID_SPRITES_5X3: dict[str, tuple[str, str, str]] = {
+    "K": ("▗▀█▀▖", " ▜█▛ ", "▟███▙"),
+    "Q": ("▘▙█▟▝", " ▐█▌ ", "▟███▙"),
+    "R": ("▟▄█▄▙", " ▐█▌ ", "▟███▙"),
+    "B": (" ▗█▖ ", "▟▚█▙ ", "▟███▙"),
+    "N": (" ▟█▙ ", "▟▀██ ", "▟███▙"),
+    "P": (" ▗▄▖ ", " ▜█▛ ", "▗███▖"),
+}
+
 # High-resolution Staunton Braille sprites (14x12 sub-pixels in 7x3 cells, 10x12 in 5x3 cells)
 BRAILLE_SPRITES_7X3: dict[str, tuple[str, str, str]] = {
     "K": (" ⣀⡒⣿⢒⣀ ", "⠘⢿⣿⣿⣿⡿⠃", "⢀⣴⣿⣿⣿⣦⡀"),
@@ -614,7 +673,7 @@ BRAILLE_SPRITES_7X3: dict[str, tuple[str, str, str]] = {
     "R": (" ⢿⣤⣿⣤⡿ ", " ⢸⣿⣿⣿⡇ ", "⢀⣾⣿⣿⣿⣷⡀"),
     "B": (" ⢀⣴⠟⣦⡀ ", " ⠈⢻⣷⡟⠁ ", "⢀⣴⣿⣿⣿⣦⡀"),
     "N": ("⢀⣴⣿⠷⣷⣄ ", "⠈⠉⣀⣴⣿⡿ ", "⢀⣼⣿⣿⣿⣧⡀"),
-    "P": ("   ⢀⣀⡀  ", "   ⣻⣿⣟  ", "  ⣰⣿⣿⣿⣆ "),
+    "P": ("  ⢀⣀⡀  ", "  ⣻⣿⣟  ", " ⣰⣿⣿⣿⣆ "),
 }
 
 BRAILLE_SPRITES_5X3: dict[str, tuple[str, str, str]] = {

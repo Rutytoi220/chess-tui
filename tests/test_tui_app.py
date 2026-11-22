@@ -234,12 +234,19 @@ async def test_auto_board_sizing_and_block_art_pieces(tmp_path: Path):
         assert dims.width >= 7
         assert dims.height >= 4
         rendered = board_w.render().plain
-        # Smooth multi-line Braille Staunton silhouettes should be rendered in auto mode
-        assert "⣿" in rendered
-        # Switching to block mode renders solid block sprites
+        # Solid 14x12 Staunton sextant silhouettes should be rendered in auto mode
+        assert "🬋█🬋" in rendered
+        assert "███" in rendered
+        # Switching to solid quadrant, braille, and block styles each render cleanly
+        await app.run_vim_command("pieces solid")
+        await pilot.pause()
+        assert "▄█▄" in board_w.render().plain
+        await app.run_vim_command("pieces braille")
+        await pilot.pause()
+        assert "⣿" in board_w.render().plain
         await app.run_vim_command("pieces block")
         await pilot.pause()
-        assert "███" in board_w.render().plain
+        assert "▀▄▀▄▀▄▀" in board_w.render().plain
 
 
 async def test_live_premove_queue_executes_on_turn_change_and_esc_cancels(tmp_path: Path):
