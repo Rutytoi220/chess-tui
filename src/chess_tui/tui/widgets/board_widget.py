@@ -280,7 +280,7 @@ class BoardWidget(Widget):
         if use_block and piece is not None:
             if w >= 11 and h >= 5:
                 sprite_rows: tuple[str, ...] = BLOCK_SPRITES_9X4[piece.symbol().upper()]
-            elif w >= 9 and h >= 4:
+            elif w >= 8 and h >= 4:
                 sprite_rows = BLOCK_SPRITES_7X3[piece.symbol().upper()]
             else:
                 sprite_rows = BLOCK_SPRITES_5X3[piece.symbol().upper()]

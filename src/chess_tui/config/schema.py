@@ -123,6 +123,7 @@ class InputConfig:
             "open_help": "?",
             "cycle_theme": "ctrl+t",
             "cycle_size": "ctrl+y",
+            "cycle_pieces": "ctrl+o",
             "resign": "ctrl+r",
             "offer_draw": "ctrl+d",
             "new_game": "ctrl+n",

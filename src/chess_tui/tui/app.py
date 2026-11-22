@@ -391,8 +391,9 @@ class ChessTuiApp(App[None]):
                 self.cdp_bridge = bridge
                 self.active_account_alias = acc.alias
                 self.active_username = acc.username
-                self.config.default_account = acc.alias
-                self.config_manager.save()
+                if self.config.default_account != acc.alias:
+                    self.config.default_account = acc.alias
+                    self.config_manager.save()
                 if force_nav and start_url not in page_url:
                     await bridge.navigate(start_url)
                 mode_tag = "headless" if use_headless else "visible"
@@ -955,6 +956,15 @@ class ChessTuiApp(App[None]):
             self.config_manager.save()
             self.sync_ui()
             self._set_status(f"Square size: {self.config.board.square_size}")
+            event.stop()
+            return
+        if self._matches_binding(event, "cycle_pieces"):
+            styles = ["auto", "block", "unicode-dual", "unicode-filled", "ascii"]
+            cur = styles.index(self.config.board.piece_style) if self.config.board.piece_style in styles else 0
+            self.config.board.piece_style = styles[(cur + 1) % len(styles)]
+            self.config_manager.save()
+            self.sync_ui()
+            self._set_status(f"Piece style: {self.config.board.piece_style}")
             event.stop()
             return
         if self._matches_binding(event, "resign"):
