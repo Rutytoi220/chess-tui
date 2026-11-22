@@ -80,7 +80,7 @@ class ChessTuiApp(App[None]):
         self.active_hints: dict[chess.Square, str] = {}
         self.pending_promotion: tuple[chess.Square, chess.Square] | None = None
         self._confirm_resign_pending: bool = False
-        self._status_msg: str = "Type a Vimium hint tag (e.g. AB) to select a piece • ? for help"
+        self._status_msg: str = "Type hint (e.g. AB) to move • ^A Login to Chess.com • ^P Play • ^S Customize • ? Help"
 
         # Bridges & optional offline UCI engine
         self.active_account_alias: str = ""
@@ -218,8 +218,8 @@ class ChessTuiApp(App[None]):
             user = self.active_username or "Browser Tab"
             return f"LIVE EXT • {user}"
         if self.game_state.mode == GameMode.LOCAL_ENGINE:
-            return f"OFFLINE • vs UCI Engine (Lv {self.config.bridge.uci_skill_level})"
-        return "OFFLINE • Local 2-Player"
+            return f"LOCAL BOARD • vs UCI Engine (Lv {self.config.bridge.uci_skill_level})"
+        return "LOCAL BOARD • ^A to Login to Chess.com"
 
     def sync_ui(self) -> None:
         """Refresh top bar, board widget, sidebar, and command bar."""
@@ -350,6 +350,23 @@ class ChessTuiApp(App[None]):
                 self._log(f"Navigating extension tab -> {url}")
             return ok
         return False
+
+    async def start_chesscom_match(self, time_control: str = "") -> tuple[bool, str]:
+        """Navigate to chess.com/play/online and launch a live game."""
+        if self.cdp_bridge and self.cdp_bridge.connected:
+            state = await self.cdp_bridge.read_state()
+            cur_url = str((state or {}).get("url") or "")
+            if "/play/online" not in cur_url:
+                await self.cdp_bridge.navigate("https://www.chess.com/play/online")
+                await asyncio.sleep(1.4)
+            ok, msg = await self.cdp_bridge.start_match(time_control)
+            self._set_status(msg)
+            self._log(msg)
+            return ok, msg
+        if self.ws_bridge.client_count > 0:
+            await self.ws_bridge.navigate("https://www.chess.com/play/online")
+            return True, "Opened chess.com/play/online in extension browser"
+        return False, "Connect a Chess.com account first (press Ctrl+A)."
 
     async def _on_bridge_state(self, snapshot: dict[str, Any]) -> None:
         """Handle live DOM state pushed from CDP or Browser Extension."""
@@ -1029,7 +1046,13 @@ class ChessTuiApp(App[None]):
         elif cmd == "settings":
             self.push_screen(SettingsScreen())
         elif cmd == "play":
-            self.push_screen(PlayScreen())
+            if args:
+                _, msg = await self.start_chesscom_match(" ".join(args))
+                self._set_status(msg)
+            else:
+                self.push_screen(PlayScreen())
+        elif cmd == "login":
+            self.push_screen(AccountsScreen())
         elif cmd == "archive":
             self.push_screen(ArchiveScreen(initial_username=args[0] if args else ""))
         elif cmd == "puzzle":

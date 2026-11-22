@@ -14,7 +14,9 @@ import websockets
 from .dom_scripts import (
     READ_STATE_JS,
     build_click_action_js,
+    build_click_play_button_js,
     build_promotion_coords_js,
+    build_select_time_control_js,
     build_square_coords_js,
 )
 
@@ -226,3 +228,17 @@ class CdpBridge:
         if isinstance(res, dict) and res.get("ok"):
             return True, f"Action '{action}' triggered"
         return False, str((res or {}).get("error") or f"Action '{action}' failed")
+
+    async def start_match(self, time_control: str = "") -> tuple[bool, str]:
+        """Select a time control (if given) and click Play on Chess.com /play/online."""
+        if time_control:
+            res = await self.eval_js(build_select_time_control_js(time_control))
+            if isinstance(res, dict) and res.get("openedSelector"):
+                await asyncio.sleep(0.2)
+                await self.eval_js(build_select_time_control_js(time_control))
+            await asyncio.sleep(0.15)
+        play_res = await self.eval_js(build_click_play_button_js())
+        if isinstance(play_res, dict) and play_res.get("ok"):
+            label = time_control or "default"
+            return True, f"Searching Chess.com match ({label})..."
+        return False, str((play_res or {}).get("error") or "Open chess.com/play/online and click Play")

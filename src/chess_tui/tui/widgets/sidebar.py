@@ -185,7 +185,8 @@ class SidebarWidget(Widget):
                 Style(color=t.muted_fg),
             )
             out.append("  Type tag to select, then target tag to move.\n", Style(color=t.text_fg))
-            out.append("  : command • / SAN • ^A accounts • ^S customize\n", Style(color=t.muted_fg))
+            out.append("  ^A login  ^P play  ^S customize  ^G archives\n", Style(color=t.muted_fg))
+            out.append("  : command  / SAN move  ? help\n", Style(color=t.muted_fg))
             out.append("\n")
 
         # Recent logs

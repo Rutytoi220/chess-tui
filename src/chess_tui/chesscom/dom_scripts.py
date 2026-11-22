@@ -305,3 +305,54 @@ def build_click_action_js(action: str) -> str:
   return {{ ok: false, error: "Unknown action: " + action }};
 }})()
 """
+
+
+def build_select_time_control_js(time_control: str) -> str:
+    """Return JS opening Chess.com's time-control selector and picking `time_control` (e.g. '3 min')."""
+    tc = json.dumps(time_control.strip().lower())
+    return f"""
+(() => {{
+  const want = {tc};
+  if (!want) return {{ ok: true, skipped: true }};
+  const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+
+  // Check if time option is already visible on page
+  const allBtns = Array.from(document.querySelectorAll("button, [role='button']"));
+  let match = allBtns.find(b => norm(b.textContent) === want);
+  if (match) {{
+    match.click();
+    return {{ ok: true, selected: norm(match.textContent) }};
+  }}
+
+  // Otherwise open the time selector dropdown
+  const toggle = document.querySelector(
+    ".time-selector-component, [data-cy='time-control-selector'], .selector-button-button"
+  );
+  if (toggle) {{
+    toggle.click();
+    return {{ ok: false, openedSelector: true }};
+  }}
+  return {{ ok: false, error: "Time selector not found" }};
+}})()
+"""
+
+
+def build_click_play_button_js() -> str:
+    """Return JS clicking the primary Play / Start Game button on /play/online."""
+    return """
+(() => {
+  const candidates = [
+    ...document.querySelectorAll("button[data-cy='new-game-index-play']"),
+    ...document.querySelectorAll("button.cc-button-primary, button.ui_v5-button-primary"),
+    ...document.querySelectorAll("button")
+  ];
+  for (const el of candidates) {
+    const txt = (el.textContent || "").replace(/\\s+/g, " ").trim().toLowerCase();
+    if (txt === "play" || txt === "start game" || txt === "new game") {
+      el.click();
+      return { ok: true, clicked: txt };
+    }
+  }
+  return { ok: false, error: "Play button not found on page" };
+})()
+"""

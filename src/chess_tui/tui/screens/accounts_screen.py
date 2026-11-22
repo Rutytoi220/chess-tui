@@ -141,8 +141,12 @@ class AccountsScreen(ModalScreen[None]):
         if bid in ("btn_add_login", "btn_add_only"):
             alias = self.query_one("#alias_input", Input).value.strip()
             if not alias:
-                self._set_feedback("Enter an account alias first (e.g. 'main').")
-                return
+                existing = {a.alias for a in tui.account_manager.list_accounts()}
+                alias = "main"
+                idx = 2
+                while alias in existing:
+                    alias = f"account{idx}"
+                    idx += 1
             try:
                 acc = tui.account_manager.add_account(alias)
             except ValueError as exc:
