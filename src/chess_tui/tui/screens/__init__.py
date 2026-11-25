@@ -5,6 +5,7 @@ from .archive_screen import ArchiveScreen
 from .help_screen import HelpScreen
 from .play_screen import PlayScreen
 from .settings_screen import SettingsScreen
+from .share_screen import ShareScreen
 
 __all__ = [
     "AccountsScreen",
@@ -12,4 +13,5 @@ __all__ = [
     "HelpScreen",
     "PlayScreen",
     "SettingsScreen",
+    "ShareScreen",
 ]

@@ -120,6 +120,7 @@ class InputConfig:
             "open_settings": "ctrl+s",
             "open_play": "ctrl+p",
             "open_archives": "ctrl+g",
+            "open_share": "ctrl+e",
             "open_help": "?",
             "cycle_theme": "ctrl+t",
             "cycle_size": "ctrl+y",

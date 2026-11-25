@@ -65,6 +65,7 @@ KEYBINDINGS (Customizable in config.toml)
   {kb.get('open_settings', 'ctrl+s'):<12} Interactive Customizer (Themes, Hints, Art, Layout)
   {kb.get('open_play', 'ctrl+p'):<12} Play Menu (Chess.com Online, Daily Puzzle, Local, UCI)
   {kb.get('open_archives', 'ctrl+g'):<12} Player Ratings & Game Archive Replay (PubAPI)
+  {kb.get('open_share', 'ctrl+e'):<12} Share / Export Game (Copy PGN, Save .pgn, FEN, Review Link)
   {kb.get('flip_board', 'ctrl+f'):<12} Flip Board Orientation
   {kb.get('toggle_hints', 'ctrl+h'):<12} Toggle Vimium Hints On/Off
   {kb.get('toggle_zen', 'ctrl+z'):<12} Toggle Zen Mode (Hide Sidebar)
@@ -86,7 +87,11 @@ VIM COMMANDS (`:`)
   :preset save|load <name>  Save or load named config presets
   :account <alias>          Connect/launch Chess.com account profile
   :puzzle [random]          Play Chess.com Daily Puzzle
-  :fen <fen>                Load custom FEN position
+  :fen [fen]                Copy current FEN (no args) or load custom FEN position
+  :share / :pgn [copy|save] Open Share modal, copy PGN, or save .pgn file
+  :export [path]            Save current game as a .pgn file
+  :copy [pgn|fen|url]       Copy PGN, FEN, or share link to clipboard
+  :review / :open           Open Chess.com Game Review / game link in browser
   :resign / :draw / :abort / :rematch / :newgame
 """
         with Container(id="help_dialog"):

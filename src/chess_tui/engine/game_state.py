@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
+import io
 import re
 from typing import Any
 
 import chess
+import chess.pgn
 
 
 class GameMode(StrEnum):
@@ -67,6 +70,7 @@ class GameState:
     result_text: str = ""
     result_reason: str = ""
     game_url: str = ""
+    raw_pgn: str = ""
     puzzle_solution: list[str] = field(default_factory=list)
     puzzle_index: int = 0
     puzzle_title: str = ""
@@ -86,6 +90,7 @@ class GameState:
         self.result_text = ""
         self.result_reason = ""
         self.game_url = ""
+        self.raw_pgn = ""
         self.puzzle_solution = []
         self.puzzle_index = 0
         self.puzzle_title = ""
@@ -227,8 +232,21 @@ class GameState:
         old_player_color = self.player_color
         old_game_over = self.game_over
 
+        old_url = self.game_url
         self.mode = GameMode.CHESSCOM_LIVE
-        self.game_url = str(snapshot.get("url") or self.game_url)
+        new_url = str(snapshot.get("url") or self.game_url)
+        # Detect switching to a brand-new Chess.com game URL so stale moves/PGN don't bleed over
+        if (
+            old_url
+            and new_url
+            and "/game/" in new_url
+            and new_url.split("?")[0] != old_url.split("?")[0]
+        ):
+            self.board = chess.Board()
+            self.move_history_san = []
+            self.raw_pgn = ""
+            self.last_move = None
+        self.game_url = new_url
 
         flipped = bool(snapshot.get("flipped", False))
         # Chess.com bottom player is always the perspective color when playing
@@ -269,12 +287,32 @@ class GameState:
             if m and not re.fullmatch(r"\d+(?:\.\d+)?[smhd]", str(m).strip(), re.I)
         ]
         dom_fen: str | None = snapshot.get("fen")
+        dom_pgn: str = str(snapshot.get("pgn") or "").strip()
+        if dom_pgn:
+            self.raw_pgn = dom_pgn
 
         rebuilt_board: chess.Board | None = None
         rebuilt_last_move: chess.Move | None = None
 
+        # Tier 0: Direct PGN from Chess.com board controller (`board.game.getPGN()`)
+        if dom_pgn:
+            try:
+                parsed_game = chess.pgn.read_game(io.StringIO(dom_pgn))
+            except Exception:
+                parsed_game = None
+            if parsed_game is not None:
+                candidate = parsed_game.board()
+                san_list: list[str] = []
+                for mv in parsed_game.mainline_moves():
+                    san_list.append(candidate.san(mv))
+                    candidate.push(mv)
+                if san_list and (not dom_pieces or _board_matches_dom_pieces(candidate, dom_pieces)):
+                    rebuilt_board = candidate
+                    rebuilt_last_move = candidate.peek() if candidate.move_stack else None
+                    self.move_history_san = san_list
+
         # Tier 1: Replay SAN move list from standard position and verify it matches DOM pieces
-        if dom_moves:
+        if rebuilt_board is None and dom_moves:
             candidate = chess.Board()
             valid_replay = True
             for san in dom_moves:
@@ -288,6 +326,28 @@ class GameState:
                 rebuilt_board = candidate
                 rebuilt_last_move = candidate.peek() if candidate.move_stack else None
                 self.move_history_san = dom_moves
+
+        # Tier 1.5: Incremental legal-move inference from previous board when DOM move list is unavailable
+        if rebuilt_board is None and dom_pieces and old_mode == GameMode.CHESSCOM_LIVE:
+            if _board_matches_dom_pieces(self.board, dom_pieces):
+                rebuilt_board = self.board
+                rebuilt_last_move = self.last_move
+            elif _board_matches_dom_pieces(chess.Board(), dom_pieces):
+                rebuilt_board = chess.Board()
+                rebuilt_last_move = None
+                self.move_history_san = []
+                self.raw_pgn = ""
+            else:
+                inferred = _infer_moves_to_dom(self.board, dom_pieces)
+                if inferred is not None:
+                    candidate = self.board.copy(stack=True)
+                    new_sans = list(self.move_history_san)
+                    for mv in inferred:
+                        new_sans.append(candidate.san(mv))
+                        candidate.push(mv)
+                    rebuilt_board = candidate
+                    rebuilt_last_move = inferred[-1]
+                    self.move_history_san = new_sans
 
         # Tier 2: Direct FEN from board controller if available
         if rebuilt_board is None and dom_fen:
@@ -357,6 +417,102 @@ class GameState:
             or self.game_over != old_game_over
         )
 
+    def export_fen(self) -> str:
+        """Return the current board FEN string."""
+        return self.board.fen()
+
+    def share_links(self) -> dict[str, str]:
+        """Return shareable URLs for the current game (Chess.com game/review + Lichess analysis)."""
+        links: dict[str, str] = {}
+        url = self.game_url.strip()
+        if url and "chess.com" in url and "/game/" in url:
+            clean_url = url.split("?")[0]
+            links["game_url"] = clean_url
+            m = re.search(r"/game/(live|daily)/(\d+)", clean_url)
+            if m:
+                kind, gid = m.group(1), m.group(2)
+                links["review_url"] = f"https://www.chess.com/analysis/game/{kind}/{gid}?tab=review"
+            else:
+                links["review_url"] = clean_url
+        fen_encoded = self.board.fen().replace(" ", "_")
+        links["lichess_analysis_url"] = f"https://lichess.org/analysis/fromPosition/{fen_encoded}"
+        links["lichess_paste_url"] = "https://lichess.org/paste"
+        return links
+
+    def export_pgn(self) -> str:
+        """Build a clean standard PGN string for the current game."""
+        if self.raw_pgn.strip():
+            return self.raw_pgn.strip()
+
+        game = chess.pgn.Game()
+        event_map = {
+            GameMode.CHESSCOM_LIVE: "Live Chess",
+            GameMode.CHESSCOM_PUZZLE: self.puzzle_title or "Chess.com Puzzle",
+            GameMode.CHESSCOM_ARCHIVE: "Chess.com Archive",
+            GameMode.LOCAL_ENGINE: "Local vs UCI Engine",
+            GameMode.LOCAL_2P: "Local 2-Player",
+            GameMode.SANDBOX: "Custom Position",
+        }
+        game.headers["Event"] = event_map.get(self.mode, "Chess Game")
+        game.headers["Site"] = "Chess.com" if self.mode == GameMode.CHESSCOM_LIVE else "chess-tui"
+        game.headers["Date"] = datetime.now().strftime("%Y.%m.%d")
+        game.headers["Round"] = "-"
+        game.headers["White"] = self.white_player.username or "White"
+        game.headers["Black"] = self.black_player.username or "Black"
+        if self.white_player.rating:
+            game.headers["WhiteElo"] = self.white_player.rating
+        if self.black_player.rating:
+            game.headers["BlackElo"] = self.black_player.rating
+
+        res = self.result_text.strip()
+        if res not in ("1-0", "0-1", "1/2-1/2"):
+            outcome = self.board.outcome(claim_draw=True) if self.board.is_game_over(claim_draw=True) else None
+            res = outcome.result() if outcome else "*"
+        game.headers["Result"] = res
+
+        if self.result_reason:
+            game.headers["Termination"] = self.result_reason
+        if self.game_url and "/game/" in self.game_url:
+            game.headers["Link"] = self.game_url.split("?")[0]
+
+        moves_to_write: list[chess.Move] = []
+        start_board: chess.Board | None = None
+
+        if self.mode == GameMode.CHESSCOM_ARCHIVE and self.archive_moves:
+            start_board = chess.Board(self.archive_initial_fen)
+            moves_to_write = list(self.archive_moves)
+        elif self.board.move_stack:
+            root = self.board.root()
+            start_board = root
+            moves_to_write = list(self.board.move_stack)
+        elif self.move_history_san:
+            tmp = chess.Board()
+            parsed: list[chess.Move] = []
+            ok = True
+            for san in self.move_history_san:
+                try:
+                    mv = tmp.parse_san(san)
+                    tmp.push(mv)
+                    parsed.append(mv)
+                except ValueError:
+                    ok = False
+                    break
+            if ok and parsed:
+                start_board = chess.Board()
+                moves_to_write = parsed
+
+        if start_board is not None and start_board.fen() != chess.STARTING_FEN:
+            game.setup(start_board)
+        elif not moves_to_write and self.board.fen() != chess.STARTING_FEN:
+            game.setup(self.board)
+
+        node: chess.pgn.GameNode = game
+        for mv in moves_to_write:
+            node = node.add_variation(mv)
+
+        exporter = chess.pgn.StringExporter(headers=True, variations=False, comments=False)
+        return game.accept(exporter).strip()
+
 
 def parse_clock_seconds(clock_text: Any) -> float | None:
     """Convert '04:32', '1:05:10', or '0:09.4' into seconds."""
@@ -388,6 +544,30 @@ def _board_matches_dom_pieces(board: chess.Board, dom_pieces: dict[str, str]) ->
         if dom_pieces.get(sq_name) != expected:
             return False
     return True
+
+
+def _infer_moves_to_dom(board: chess.Board, dom_pieces: dict[str, str]) -> list[chess.Move] | None:
+    """Infer a 1-ply (or 2-ply) legal move sequence transitioning `board` to `dom_pieces`."""
+    # Fast 1-ply check
+    for mv in board.legal_moves:
+        board.push(mv)
+        matched = _board_matches_dom_pieces(board, dom_pieces)
+        board.pop()
+        if matched:
+            return [mv]
+
+    # 2-ply check (e.g. fast premove or both moves happened within one poll interval)
+    for mv1 in board.legal_moves:
+        board.push(mv1)
+        for mv2 in board.legal_moves:
+            board.push(mv2)
+            matched = _board_matches_dom_pieces(board, dom_pieces)
+            board.pop()
+            if matched:
+                board.pop()
+                return [mv1, mv2]
+        board.pop()
+    return None
 
 
 def _board_from_dom_pieces(dom_pieces: dict[str, str], turn: chess.Color) -> chess.Board:

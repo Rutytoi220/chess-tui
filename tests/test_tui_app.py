@@ -15,6 +15,7 @@ from chess_tui.tui.screens import (
     HelpScreen,
     PlayScreen,
     SettingsScreen,
+    ShareScreen,
 )
 from chess_tui.tui.widgets import BoardWidget
 
@@ -330,3 +331,49 @@ async def test_ctrl_c_quits_app_from_main_and_modal(tmp_path: Path):
         await pilot.press("ctrl+c")
         await pilot.pause()
         assert app2.is_running is False
+
+
+async def test_share_modal_pgn_export_and_live_game_over_popup(tmp_path: Path):
+    app = _make_app(tmp_path)
+    async with app.run_test(size=(120, 42)) as pilot:
+        await pilot.pause()
+        await app.execute_move(chess.E2, chess.E4)
+        await app.execute_move(chess.E7, chess.E5)
+
+        # Ctrl+E opens ShareScreen with live PGN preview
+        await pilot.press("ctrl+e")
+        await pilot.pause()
+        assert isinstance(app.screen, ShareScreen)
+        pgn_text = str(app.screen.query_one("#pgn_preview").render())
+        assert "1. e4 e5" in pgn_text
+        await pilot.press("escape")
+        await pilot.pause()
+        assert len(app.screen_stack) == 1
+
+        # :export saves a valid .pgn file
+        out_pgn = tmp_path / "exported_game.pgn"
+        await app.run_vim_command(f"export {out_pgn}")
+        assert out_pgn.exists()
+        saved = out_pgn.read_text(encoding="utf-8")
+        assert "1. e4 e5" in saved
+
+        # :fen (no args) and :copy work cleanly
+        await app.run_vim_command("fen")
+        assert "Copied FEN" in app._status_msg
+        await app.run_vim_command("copy pgn")
+        assert "Copied PGN" in app._status_msg
+
+        # Live Chess.com game over auto-opens ShareScreen once
+        await app._on_bridge_state(
+            {
+                "url": "https://www.chess.com/game/live/777888999",
+                "hasBoard": True,
+                "flipped": False,
+                "moves": ["f3", "e5", "g4", "Qh4#"],
+                "topPlayer": {"username": "Opp", "clock": "09:50", "isActive": False},
+                "bottomPlayer": {"username": "Hero", "clock": "09:55", "isActive": False},
+                "gameOver": {"isOver": True, "score": "0-1", "reason": "Checkmate"},
+            }
+        )
+        await pilot.pause()
+        assert isinstance(app.screen, ShareScreen)

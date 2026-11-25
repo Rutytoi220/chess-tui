@@ -97,14 +97,20 @@ READ_STATE_JS = r"""
     }
   }
 
-  // Optional internal board game object FEN/turn if exposed
+  // Optional internal board game object FEN/PGN/turn/moves if exposed
   let fen = null;
+  let pgn = null;
   let turn = null;
   let playerColor = null;
+  const controllerMoves = [];
   try {
     const g = board.game || board._game;
     if (g) {
       if (typeof g.getFEN === "function") fen = g.getFEN();
+      if (typeof g.getPGN === "function") {
+        const rawPgn = g.getPGN();
+        if (typeof rawPgn === "string" && rawPgn.trim()) pgn = rawPgn.trim();
+      }
       if (typeof g.getTurn === "function") {
         const t = g.getTurn();
         turn = t === 1 || t === "w" ? "w" : t === 2 || t === "b" ? "b" : null;
@@ -112,6 +118,16 @@ READ_STATE_JS = r"""
       if (typeof g.getPlayingAs === "function") {
         const p = g.getPlayingAs();
         playerColor = p === 1 || p === "w" ? "w" : p === 2 || p === "b" ? "b" : null;
+      }
+      const rawHistory =
+        (typeof g.getHistory === "function" && g.getHistory()) ||
+        (typeof g.getMoveList === "function" && g.getMoveList()) ||
+        null;
+      if (Array.isArray(rawHistory)) {
+        for (const item of rawHistory) {
+          const san = typeof item === "string" ? item : (item && (item.san || item.notation || item.text));
+          if (typeof san === "string" && san.trim()) controllerMoves.push(san.trim());
+        }
       }
     }
   } catch (_) {}
@@ -142,28 +158,47 @@ READ_STATE_JS = r"""
   const topPlayer = readPlayerPanel("#board-layout-player-top, .player-top");
   const bottomPlayer = readPlayerPanel("#board-layout-player-bottom, .player-bottom");
 
-  // Extract SAN move list (ignoring Chess.com move timestamps like "2s", "0s")
-  const moves = [];
-  const moveNodes = document.querySelectorAll(
-    "wc-simple-move-list [data-ply], vertical-move-list [data-ply], .move-list-wrapper [data-ply], wc-simple-move-list .node, vertical-move-list .node"
-  );
-  for (const node of moveNodes) {
-    if (node.closest("[class*='time'], [class*='clock']") || /time|clock/i.test(node.className || "")) continue;
-    const figEl = node.querySelector("[data-figurine]");
-    const fig = figEl ? figEl.getAttribute("data-figurine") || "" : "";
-    const clone = node.cloneNode(true);
-    for (const rm of clone.querySelectorAll("[class*='time'], [class*='clock'], [data-cy*='time']")) {
-      rm.remove();
+  // Extract SAN move list (checking controller, shadow roots, and modern Chess.com selectors)
+  const moves = controllerMoves.length ? [...controllerMoves] : [];
+  if (!moves.length) {
+    const moveRoots = [document];
+    for (const host of document.querySelectorAll("wc-simple-move-list, vertical-move-list, wc-move-list")) {
+      if (host.shadowRoot) moveRoots.push(host.shadowRoot);
     }
-    let txt = (clone.textContent || "").replace(/\s+/g, "").trim();
-    txt = txt.replace(/^\d+\.+/, "");
-    if (!txt) continue;
-    if (/^\d+(\.\d+)?[smhd]$/i.test(txt) || /^\d+:\d+/.test(txt)) continue;
-    if (fig && !txt.startsWith(fig) && !txt.startsWith("O-")) {
-      txt = fig + txt;
-    }
-    if (!/^(1-0|0-1|1\/2-1\/2|\*)$/.test(txt)) {
-      moves.push(txt);
+    const moveSel = [
+      "wc-simple-move-list [data-ply]",
+      "vertical-move-list [data-ply]",
+      ".move-list-wrapper [data-ply]",
+      ".main-line-ply",
+      "[data-node]",
+      "wc-simple-move-list .node",
+      "vertical-move-list .node",
+      ".node-highlight-content",
+    ].join(", ");
+    const seenNodes = new Set();
+    for (const r of moveRoots) {
+      for (const node of r.querySelectorAll(moveSel)) {
+        if (seenNodes.has(node)) continue;
+        seenNodes.add(node);
+        if (node.closest("[class*='time'], [class*='clock']") || /time|clock/i.test(node.className || "")) continue;
+        const figEl = node.querySelector("[data-figurine]");
+        const fig = figEl ? figEl.getAttribute("data-figurine") || "" : "";
+        const clone = node.cloneNode(true);
+        for (const rm of clone.querySelectorAll("[class*='time'], [class*='clock'], [data-cy*='time']")) {
+          rm.remove();
+        }
+        let txt = (clone.textContent || "").replace(/\s+/g, "").trim();
+        txt = txt.replace(/^\d+\.+/, "");
+        if (!txt) continue;
+        if (/^\d+(\.\d+)?[smhd]$/i.test(txt) || /^\d+:\d+/.test(txt)) continue;
+        if (fig && !txt.startsWith(fig) && !txt.startsWith("O-")) {
+          txt = fig + txt;
+        }
+        if (!/^(1-0|0-1|1\/2-1\/2|\*)$/.test(txt)) {
+          moves.push(txt);
+        }
+      }
+      if (moves.length) break;
     }
   }
 
@@ -222,6 +257,7 @@ READ_STATE_JS = r"""
     pieces,
     lastMoveSquares,
     fen,
+    pgn,
     turn,
     playerColor,
     topPlayer,

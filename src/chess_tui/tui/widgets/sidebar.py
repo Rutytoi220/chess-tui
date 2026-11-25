@@ -170,7 +170,8 @@ class SidebarWidget(Widget):
 
         if gs.game_over:
             out.append("GAME OVER  ", Style(color=t.hint_fg, bgcolor=t.warning_fg, bold=True))
-            out.append(f" {gs.result_text} ({gs.result_reason})\n\n", Style(color=t.warning_fg, bold=True))
+            out.append(f" {gs.result_text} ({gs.result_reason})\n", Style(color=t.warning_fg, bold=True))
+            out.append("  ^E Share/PGN • :rematch • :newgame\n\n", Style(color=t.accent_fg))
         elif gs.premove is not None:
             p_from = chess.square_name(gs.premove[0]).upper()
             p_to = chess.square_name(gs.premove[1]).upper()
@@ -210,7 +211,7 @@ class SidebarWidget(Widget):
             )
             out.append("  Type tag to select, then target tag to move.\n", Style(color=t.text_fg))
             out.append("  ^A login  ^P play  ^S customize  ^G archives\n", Style(color=t.muted_fg))
-            out.append("  : command  / SAN move  ? help\n", Style(color=t.muted_fg))
+            out.append("  ^E share/pgn  : command  / SAN  ? help\n", Style(color=t.muted_fg))
             out.append("\n")
 
         # Recent logs

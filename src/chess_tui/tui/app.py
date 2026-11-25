@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import io
 from pathlib import Path
+import re
+import shutil
+import subprocess
 from typing import Any
+import webbrowser
 
 import chess
 import chess.pgn
@@ -33,6 +38,7 @@ from chess_tui.tui.screens import (
     HelpScreen,
     PlayScreen,
     SettingsScreen,
+    ShareScreen,
 )
 from chess_tui.tui.widgets import BoardWidget, CommandBar, SidebarWidget
 
@@ -109,6 +115,7 @@ class ChessTuiApp(App[None]):
         self._initial_puzzle = initial_puzzle
         self._initial_puzzle_random = initial_puzzle_random
         self._last_turn_seen: chess.Color = self.game_state.board.turn
+        self._was_live_game_over: bool = False
         self._startup_task: asyncio.Task[None] | None = None
 
     def compose(self) -> ComposeResult:
@@ -547,7 +554,19 @@ class ChessTuiApp(App[None]):
             self._set_status("Searching Chess.com for an opponent...")
         elif self._in_lobby_preview:
             self._set_status("In Chess.com lobby (not in a game yet) — press Ctrl+P to Start Match")
+        elif self.game_state.game_over:
+            self._set_status(
+                f"Game Over: {self.game_state.result_text} ({self.game_state.result_reason}) • ^E Share/PGN • :rematch"
+            )
         self.sync_ui()
+
+        # Auto-open post-game Share / Export modal once when a live game ends
+        is_live_over = not self._in_lobby_preview and self.game_state.game_over
+        if is_live_over and not self._was_live_game_over and len(self.screen_stack) == 1:
+            self._was_live_game_over = True
+            self.push_screen(ShareScreen())
+        elif not is_live_over:
+            self._was_live_game_over = False
 
     async def _dispatch_bridge_move(
         self, from_name: str, to_name: str, promo_char: str | None
@@ -919,6 +938,12 @@ class ChessTuiApp(App[None]):
             self.push_screen(ArchiveScreen())
             event.stop()
             return
+        if self._matches_binding(event, "open_share") or (
+            "open_share" not in self.config.input.keybindings and event.key == "ctrl+e"
+        ):
+            self.push_screen(ShareScreen())
+            event.stop()
+            return
         if self._matches_binding(event, "open_help"):
             self.push_screen(HelpScreen())
             event.prevent_default()
@@ -1139,6 +1164,134 @@ class ChessTuiApp(App[None]):
             self.game_state.result_reason = "Local resignation"
             self.sync_ui()
 
+    def copy_text(self, text: str, label: str = "Text") -> str:
+        """Copy text to both system clipboard (wl-copy/xclip/xsel/pbcopy) and terminal OSC 52."""
+        try:
+            self.copy_to_clipboard(text)
+        except Exception:
+            pass
+
+        copied_native = False
+        for cmd in (
+            ["wl-copy"],
+            ["xclip", "-selection", "clipboard"],
+            ["xsel", "--clipboard", "--input"],
+            ["pbcopy"],
+        ):
+            if shutil.which(cmd[0]):
+                try:
+                    subprocess.run(
+                        cmd,
+                        input=text.encode("utf-8"),
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=2.0,
+                    )
+                    copied_native = True
+                    break
+                except Exception:
+                    continue
+
+        via = "clipboard" if copied_native else "terminal clipboard (OSC 52)"
+        msg = f"Copied {label} to {via}"
+        self._set_status(msg)
+        self._log(msg)
+        return msg
+
+    def save_pgn_file(self, path: str | Path | None = None) -> tuple[bool, str]:
+        """Export the current game as a `.pgn` file and return (ok, message)."""
+        pgn = self.game_state.export_pgn()
+        if path:
+            out_path = Path(path).expanduser()
+            if out_path.is_dir():
+                out_path = out_path / self._default_pgn_filename()
+        else:
+            out_dir = Path.home() / "chess-tui-games"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / self._default_pgn_filename()
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(pgn + "\n", encoding="utf-8")
+            msg = f"Saved PGN -> {out_path}"
+            self._set_status(msg)
+            self._log(msg)
+            return True, msg
+        except OSError as exc:
+            msg = f"Failed to save PGN: {exc}"
+            self._set_status(msg)
+            return False, msg
+
+    def _default_pgn_filename(self) -> str:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        w_name = re.sub(r"[^A-Za-z0-9_-]+", "_", self.game_state.white_player.username or "white").strip("_")
+        b_name = re.sub(r"[^A-Za-z0-9_-]+", "_", self.game_state.black_player.username or "black").strip("_")
+        return f"{ts}_{w_name or 'white'}_vs_{b_name or 'black'}.pgn"
+
+    def open_game_in_browser(self, *, review: bool = False, lichess: bool = False) -> tuple[bool, str]:
+        """Open the active game's Chess.com review/game URL or Lichess analysis in system browser."""
+        links = self.game_state.share_links()
+        if lichess:
+            url = links["lichess_analysis_url"]
+        elif review and "review_url" in links:
+            url = links["review_url"]
+        elif "game_url" in links:
+            url = links["game_url"]
+        else:
+            url = links["lichess_analysis_url"]
+        try:
+            webbrowser.open(url)
+            msg = f"Opened {url}"
+            self._set_status(msg)
+            self._log(msg)
+            return True, msg
+        except Exception as exc:
+            msg = f"Failed to open browser: {exc}"
+            self._set_status(msg)
+            return False, msg
+
+    async def fetch_latest_pubapi_pgn(self) -> tuple[bool, str]:
+        """Fetch official PGN & URL for the latest finished game via Chess.com PubAPI."""
+        user = (
+            self.active_username
+            or (
+                self.game_state.white_player.username
+                if self.game_state.player_color == chess.WHITE
+                else self.game_state.black_player.username
+            )
+        ).strip()
+        if not user or user.lower() in ("white", "black", "opponent", "player"):
+            return False, "No Chess.com username detected for PubAPI lookup."
+        try:
+            games = await self.pubapi.fetch_recent_games(user, limit=5)
+        except Exception as exc:
+            return False, f"PubAPI lookup failed: {exc}"
+        if not games:
+            return False, f"No recent completed games found for '{user}' yet."
+
+        target_url = self.game_state.game_url.split("?")[0]
+        matched = next((g for g in games if target_url and g.url.split("?")[0] == target_url), games[0])
+        if not matched.pgn.strip():
+            return False, "Chess.com game found, but PGN is not published yet — retry in a moment."
+
+        self.game_state.raw_pgn = matched.pgn.strip()
+        if matched.url:
+            self.game_state.game_url = matched.url
+        parsed = chess.pgn.read_game(io.StringIO(matched.pgn))
+        if parsed is not None:
+            b = parsed.board()
+            sans: list[str] = []
+            for mv in parsed.mainline_moves():
+                sans.append(b.san(mv))
+                b.push(mv)
+            if sans:
+                self.game_state.move_history_san = sans
+        self.sync_ui()
+        msg = f"Loaded official PGN ({matched.white_username} vs {matched.black_username})"
+        self._set_status(msg)
+        self._log(msg)
+        return True, msg
+
     async def _trigger_bridge_action(self, action: str) -> None:
         if self.cdp_bridge and self.cdp_bridge.connected:
             _, msg = await self.cdp_bridge.trigger_action(action)
@@ -1301,9 +1454,36 @@ class ChessTuiApp(App[None]):
         elif cmd == "puzzle":
             _, msg = await self.start_daily_puzzle(random=("random" in args))
             self._set_status(msg)
-        elif cmd == "fen" and args:
-            _, msg = self.load_fen(" ".join(args))
-            self._set_status(msg)
+        elif cmd == "fen":
+            if args:
+                _, msg = self.load_fen(" ".join(args))
+                self._set_status(msg)
+            else:
+                self.copy_text(self.game_state.export_fen(), "FEN")
+        elif cmd == "share":
+            self.push_screen(ShareScreen())
+        elif cmd == "pgn":
+            sub = args[0].lower() if args else ""
+            if sub == "copy":
+                self.copy_text(self.game_state.export_pgn(), "PGN")
+            elif sub == "save":
+                self.save_pgn_file(" ".join(args[1:]) if len(args) > 1 else None)
+            else:
+                self.push_screen(ShareScreen())
+        elif cmd == "export":
+            self.save_pgn_file(" ".join(args) if args else None)
+        elif cmd == "copy":
+            what = args[0].lower() if args else "pgn"
+            if what == "fen":
+                self.copy_text(self.game_state.export_fen(), "FEN")
+            elif what in ("url", "link"):
+                links = self.game_state.share_links()
+                url = links.get("game_url") or links["lichess_analysis_url"]
+                self.copy_text(url, "game link")
+            else:
+                self.copy_text(self.game_state.export_pgn(), "PGN")
+        elif cmd in ("review", "open"):
+            self.open_game_in_browser(review=(cmd == "review"))
         elif cmd == "local":
             self.start_local_2p()
         elif cmd == "resign":

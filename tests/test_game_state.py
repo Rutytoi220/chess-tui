@@ -75,3 +75,88 @@ def test_parse_clock_seconds():
     assert parse_clock_seconds("1:02:03") == 3723.0
     assert parse_clock_seconds("0:08.5") == 8.5
     assert parse_clock_seconds("--:--") is None
+
+
+def _pieces_map(board: chess.Board) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for sq in chess.SQUARES:
+        p = board.piece_at(sq)
+        if p is not None:
+            out[chess.square_name(sq)] = ("w" if p.color == chess.WHITE else "b") + p.symbol().lower()
+    return out
+
+
+def test_incremental_move_inference_when_dom_moves_missing():
+    gs = GameState()
+    ref = chess.Board()
+
+    # Initial board snapshot with empty DOM move list
+    gs.sync_from_bridge(
+        {
+            "url": "https://www.chess.com/game/live/999111",
+            "hasBoard": True,
+            "flipped": False,
+            "pieces": _pieces_map(ref),
+            "moves": [],
+            "topPlayer": {"username": "Darian-1899", "clock": "10:00", "isActive": False},
+            "bottomPlayer": {"username": "Rutytoi220", "clock": "10:00", "isActive": True},
+        }
+    )
+    assert gs.move_history_san == []
+
+    # 1-ply move (e4) with empty DOM move list
+    ref.push_san("e4")
+    gs.sync_from_bridge(
+        {
+            "url": "https://www.chess.com/game/live/999111",
+            "hasBoard": True,
+            "flipped": False,
+            "pieces": _pieces_map(ref),
+            "moves": [],
+            "topPlayer": {"username": "Darian-1899", "clock": "10:00", "isActive": True},
+            "bottomPlayer": {"username": "Rutytoi220", "clock": "09:58", "isActive": False},
+        }
+    )
+    assert gs.move_history_san == ["e4"]
+
+    # 2-ply jump (e5 + Nf3) between polls with empty DOM move list
+    ref.push_san("e5")
+    ref.push_san("Nf3")
+    gs.sync_from_bridge(
+        {
+            "url": "https://www.chess.com/game/live/999111",
+            "hasBoard": True,
+            "flipped": False,
+            "pieces": _pieces_map(ref),
+            "moves": [],
+            "topPlayer": {"username": "Darian-1899", "clock": "09:55", "isActive": True},
+            "bottomPlayer": {"username": "Rutytoi220", "clock": "09:57", "isActive": False},
+        }
+    )
+    assert gs.move_history_san == ["e4", "e5", "Nf3"]
+    pgn = gs.export_pgn()
+    assert "1. e4 e5 2. Nf3" in pgn
+    assert '[White "Rutytoi220"]' in pgn
+    assert '[Black "Darian-1899"]' in pgn
+    assert '[Link "https://www.chess.com/game/live/999111"]' in pgn
+
+
+def test_tier0_pgn_sync_and_share_links():
+    gs = GameState()
+    pgn_text = '[Event "Live Chess"]\n[White "Hero"]\n[Black "Villain"]\n[Result "1-0"]\n\n1. f3 e5 2. g4 Qh4# 0-1'
+    gs.sync_from_bridge(
+        {
+            "url": "https://www.chess.com/game/live/123456789?tab=game",
+            "hasBoard": True,
+            "flipped": False,
+            "pgn": pgn_text,
+            "moves": [],
+            "gameOver": {"isOver": True, "score": "0-1", "reason": "Checkmate"},
+        }
+    )
+    assert gs.move_history_san == ["f3", "e5", "g4", "Qh4#"]
+    assert gs.export_pgn() == pgn_text
+    links = gs.share_links()
+    assert links["game_url"] == "https://www.chess.com/game/live/123456789"
+    assert links["review_url"] == "https://www.chess.com/analysis/game/live/123456789?tab=review"
+    assert links["lichess_analysis_url"].startswith("https://lichess.org/analysis/fromPosition/")
